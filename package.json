@@ -1,0 +1,19 @@
+{
+  "name": "trading-dashboard",
+  "version": "1.0.0",
+  "description": "Trading journal and analysis dashboard with lightweight-charts",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.0",
+    "lightweight-charts": "https://pkg.pr.new/lightweight-charts@master"
+  }
+}
