@@ -1119,6 +1119,16 @@
     </div>
   </div>
 
+  <!-- ══ ACCOUNT FILTER BAR ══════════════════════════════════════════════════════ -->
+  <div id="acct-filter-bar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">View account:</span>
+    <button class="btn sm active-tab-btn" id="af-all" onclick="setAccountFilter('')">All</button>
+    <button class="btn sm" id="af-day" onclick="setAccountFilter('Day trading')">Day trading</button>
+    <button class="btn sm" id="af-swing" onclick="setAccountFilter('Swing trading')">Swing trading</button>
+    <button class="btn sm" id="af-prop" onclick="setAccountFilter('Prop firm trading')">Prop firm</button>
+    <span style="font-size:11px;color:var(--text3);margin-left:8px" id="acct-filter-label">Showing: All accounts</span>
+  </div>
+
   <!-- ══ STATS CARDS (always visible on calendar/dashboard) ════════════════════ -->
   <div id="stats-cards-row" class="stats-cards">
     <div class="stat-card">
@@ -1126,6 +1136,7 @@
         <div class="header-controls"><span class="trade-count" id="sc-count">0</span></div>
       </div>
       <div class="stat-value" id="sc-pnl">$0.00</div>
+      <div id="sc-pnl-pct" style="font-size:11px;margin-top:3px;color:var(--text3)">ROE: —</div>
     </div>
     <div class="stat-card">
       <div class="stat-header"><span>Equity</span></div>
@@ -1140,6 +1151,7 @@
         <div class="loss" style="flex:1"></div>
       </div>
       <div class="stat-gauge-labels"><span id="sc-wins">0W</span><span id="sc-losses">0L</span></div>
+      <div id="sc-pf" style="font-size:11px;margin-top:4px;color:var(--text3)">Profit factor: —</div>
     </div>
     <div class="stat-card">
       <div class="stat-header"><span>Avg Win / Loss</span></div>
@@ -1184,15 +1196,15 @@
     <div class="charts-section">
       <div class="chart-container">
         <div class="chart-header">
-          <h3>Cumulative equity curve</h3>
+          <h3>Total equity (deposits + P&amp;L)</h3>
         </div>
-        <canvas id="cEquity" style="height:200px"></canvas>
+        <div style="position:relative;height:200px"><canvas id="cEquity"></canvas></div>
       </div>
       <div class="chart-container">
         <div class="chart-header">
           <h3>Net daily P&L</h3>
         </div>
-        <canvas id="cDaily" style="height:200px"></canvas>
+        <div style="position:relative;height:200px"><canvas id="cDaily"></canvas></div>
       </div>
     </div>
     <div class="charts-section">
@@ -1200,20 +1212,20 @@
         <div class="chart-header">
           <h3>P&L by instrument</h3>
         </div>
-        <canvas id="cInstr" style="height:200px"></canvas>
+        <div style="position:relative;height:200px"><canvas id="cInstr"></canvas></div>
       </div>
       <div class="chart-container">
         <div class="chart-header">
           <h3>Win / Loss breakdown</h3>
         </div>
-        <canvas id="cWin" style="height:200px"></canvas>
+        <div style="position:relative;height:200px"><canvas id="cWin"></canvas></div>
       </div>
     </div>
     <div class="chart-container">
       <div class="chart-header">
         <h3>% Return per trade (vs portfolio)</h3>
       </div>
-      <canvas id="cPct" style="height:140px"></canvas>
+      <div style="position:relative;height:140px"><canvas id="cPct"></canvas></div>
     </div>
     <div class="chart-container" style="grid-column:1/-1">
       <div class="chart-header" style="justify-content:space-between;flex-wrap:wrap">
@@ -1298,6 +1310,7 @@
           <div class="field"><label>Account</label><select id="tAccount">
               <option>Day trading</option>
               <option>Swing trading</option>
+              <option>Prop firm trading</option>
             </select></div>
         </div>
         <div class="field"><label>Setup / strategy</label><input id="tSetup" placeholder="breakout, pullback..."></div>
@@ -1474,6 +1487,7 @@
           <option value="">All accounts</option>
           <option>Day trading</option>
           <option>Swing trading</option>
+          <option>Prop firm trading</option>
         </select>
         <input type="date" id="logFrom" onchange="renderLog()">
         <input type="date" id="logTo" onchange="renderLog()">
@@ -1602,6 +1616,7 @@
        STATE
     ══════════════════════════════════════════════════════════════════════════ */
     let S = { trades: [], deposits: [], entries: {}, weekPlans: [], calM: new Date().getMonth(), calY: new Date().getFullYear() };
+    let activeAccountFilter = '';
     let pendingJImgs = [], pendingWImgs = [], pendingTImgs = [], curEmo = '', pendingTrades = [], csvBatch = null;
     let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvLoadedSymbol = '';
 
@@ -1621,6 +1636,19 @@
     function saveS() { try { localStorage.setItem('tj7', JSON.stringify(S)); } catch (e) { } }
     function loadCriteria() { try { let c = localStorage.getItem('tj7_criteria'); if (c) criteriaItems = JSON.parse(c); } catch (e) { } }
     function saveCriteria() { try { localStorage.setItem('tj7_criteria', JSON.stringify(criteriaItems)); } catch (e) { } }
+
+    /* ══ ACCOUNT FILTER ═══════════════════════════════════════════════════════════ */
+    function setAccountFilter(acct) {
+      activeAccountFilter = acct;
+      document.querySelectorAll('#acct-filter-bar .btn').forEach(b => b.classList.remove('active-tab-btn'));
+      const id = acct === '' ? 'af-all' : acct === 'Day trading' ? 'af-day' : acct === 'Swing trading' ? 'af-swing' : 'af-prop';
+      const el = document.getElementById(id); if (el) el.classList.add('active-tab-btn');
+      document.getElementById('acct-filter-label').textContent = 'Showing: ' + (acct || 'All accounts');
+      updateStatsCards(); renderCal(); if (document.getElementById('page-dashboard').classList.contains('active')) renderDash();
+    }
+    function filteredTrades() {
+      return activeAccountFilter ? S.trades.filter(t => t.account === activeAccountFilter) : S.trades;
+    }
 
     /* ══ NAV ════════════════════════════════════════════════════════════════════ */
     function showPage(p, btn) {
@@ -1675,7 +1703,7 @@
 
     /* ══ STATS CARDS UPDATE ════════════════════════════════════════════════════ */
     function updateStatsCards() {
-      let T = S.trades, dep = totalDeposited(), tot = totalPnl(), eq = currentEquity();
+      let T = filteredTrades(), dep = totalDeposited(), tot = T.reduce((s,t)=>s+t.pnl,0), eq = currentEquity();
       let wins = T.filter(t => t.pnl > 0), losses = T.filter(t => t.pnl < 0);
       let wr = T.length ? Math.round(wins.length / T.length * 100) : 0;
       let avgW = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
@@ -1686,14 +1714,22 @@
       let pnlEl = document.getElementById('sc-pnl');
       pnlEl.textContent = (tot >= 0 ? '+' : '') + '$' + tot.toFixed(2);
       pnlEl.className = 'stat-value ' + (tot >= 0 ? 'positive' : 'negative');
+      // ROE% under P&L card
+      let pnlPctEl = document.getElementById('sc-pnl-pct');
+      if (pnlPctEl) { pnlPctEl.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(2) + '% ROE'; pnlPctEl.style.color = ret >= 0 ? 'var(--green)' : 'var(--red)'; }
       document.getElementById('sc-count').textContent = T.length;
       document.getElementById('sc-equity').textContent = '$' + eq.toFixed(2);
       document.getElementById('sc-roe').textContent = 'ROE: ' + (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%';
       document.getElementById('sc-wr').textContent = wr + '%';
       document.getElementById('sc-wins').textContent = wins.length + 'W';
       document.getElementById('sc-losses').textContent = losses.length + 'L';
-      let total = wins.length + losses.length || 1;
       document.getElementById('sc-gauge').innerHTML = `<div class="win" style="flex:${wins.length}"></div><div class="loss" style="flex:${losses.length}"></div>`;
+      // Profit factor
+      let grossWin = wins.reduce((s,t)=>s+t.pnl,0);
+      let grossLoss = Math.abs(losses.reduce((s,t)=>s+t.pnl,0));
+      let pf = grossLoss > 0 ? (grossWin/grossLoss) : grossWin > 0 ? Infinity : 0;
+      let pfEl = document.getElementById('sc-pf');
+      if (pfEl) { pfEl.textContent = 'Profit factor: ' + (pf===Infinity?'∞':pf.toFixed(2)); pfEl.style.color = pf>=1.5?'var(--green)':pf>=1?'var(--gold)':'var(--red)'; }
       document.getElementById('sc-avgw').textContent = '+$' + avgW.toFixed(2);
       document.getElementById('sc-avgl').textContent = '-$' + avgL.toFixed(2);
       document.getElementById('sc-rr').textContent = rr;
@@ -1963,27 +1999,94 @@
     function chMonth(d) { S.calM += d; if (S.calM > 11) { S.calM = 0; S.calY++; } if (S.calM < 0) { S.calM = 11; S.calY--; } renderCal(); }
     function renderCal() {
       let y = S.calY, m = S.calM;
-      let MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      let MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       document.getElementById('calTitle').textContent = MONTHS[m] + ' ' + y;
+      let trades = filteredTrades();
       let dm = {};
-      S.trades.forEach(t => { let [ty, tm, td] = t.date.split('-').map(Number); if (ty === y && tm - 1 === m) dm[td] = (dm[td] || { pnl: 0, count: 0 }), dm[td].pnl += t.pnl, dm[td].count++; });
-      let mp = Object.values(dm).reduce((s, v) => s + v.pnl, 0);
-      let td2 = Object.keys(dm).length, pd = Object.values(dm).filter(v => v.pnl > 0).length;
-      document.getElementById('calMonthStats').innerHTML = td2 ? `Monthly P&L: <strong style="color:${mp >= 0 ? 'var(--green)' : 'var(--red)'}">${mp >= 0 ? '+' : ''}$${mp.toFixed(2)}</strong> · <strong>${td2}</strong> trading days · <strong>${pd}/${td2}</strong> profitable` : 'No trades this month';
-      document.getElementById('calHead').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-day-head">${d}</div>`).join('');
-      let first = new Date(y, m, 1).getDay(), off = (first === 0 ? 6 : first - 1), days = new Date(y, m + 1, 0).getDate();
+      trades.forEach(t => {
+        let [ty,tm,td] = t.date.split('-').map(Number);
+        if (ty===y && tm-1===m) {
+          if (!dm[td]) dm[td] = { pnl:0, count:0, wins:0, risk:0, avgW:0, avgL:0, winPnl:0, lossPnl:0 };
+          dm[td].pnl += t.pnl; dm[td].count++;
+          if (t.pnl > 0) { dm[td].wins++; dm[td].winPnl += t.pnl; }
+          if (t.pnl < 0) dm[td].lossPnl += t.pnl;
+          dm[td].risk += computeTradeRisk(t);
+        }
+      });
+      let mp = Object.values(dm).reduce((s,v)=>s+v.pnl,0);
+      let td2 = Object.keys(dm).length, pd = Object.values(dm).filter(v=>v.pnl>0).length;
+      document.getElementById('calMonthStats').innerHTML = td2 ? `Monthly P&L: <strong style="color:${mp>=0?'var(--green)':'var(--red)'}">${mp>=0?'+':''}$${mp.toFixed(2)}</strong> · <strong>${td2}</strong> trading days · <strong>${pd}/${td2}</strong> profitable` : 'No trades this month';
+
+      // 6-col grid: Mon Tue Wed Thu Fri Sun (no Saturday)
+      const calGridHead = document.getElementById('calHead');
+      const calGridBody = document.getElementById('calBody');
+      [calGridHead,calGridBody].forEach(el=>{ if(el) el.style.gridTemplateColumns='repeat(6,1fr)'; });
+      calGridHead.innerHTML = ['Mon','Tue','Wed','Thu','Fri','Sun'].map(d=>`<div class="cal-day-head">${d}</div>`).join('');
+
+      function dayToCol(jsDay) { return {1:0,2:1,3:2,4:3,5:4,0:5,6:-1}[jsDay]??-1; }
+      let first = new Date(y,m,1).getDay();
+      let firstCol = dayToCol(first);
+      let days = new Date(y,m+1,0).getDate();
       let today = new Date().toISOString().split('T')[0];
       let cells = '';
-      for (let i = 0; i < off; i++) cells += `<div class="cal-day empty"></div>`;
-      for (let d = 1; d <= days; d++) {
+      if (firstCol > 0) for (let i=0;i<firstCol;i++) cells+=`<div class="cal-day empty"></div>`;
+
+      for (let d=1;d<=days;d++) {
+        let jsDay = new Date(y,m,d).getDay();
+        if (jsDay===6) continue; // skip Saturday
         let info = dm[d];
-        let dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        let cls = info ? (info.pnl > 0 ? 'profit' : 'loss') : '';
-        let isToday = dateStr === today ? 'today' : '';
-        let str = info ? `<div class="day-pnl ${info.pnl >= 0 ? 'pos' : 'neg'}">${info.pnl >= 0 ? '+' : ''}$${Math.abs(info.pnl) < 10 ? info.pnl.toFixed(2) : Math.round(info.pnl)}</div><div class="day-trades">${info.count} trade${info.count !== 1 ? 's' : ''}</div>` : '';
-        cells += `<div class="cal-day ${cls} ${isToday}" onclick="openDayModal('${dateStr}')"><div class="day-num">${d}</div>${str}</div>`;
+        let dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        let cls = info?(info.pnl>0?'profit':'loss'):'';
+        let isToday = dateStr===today?'today':'';
+
+        let dayContent = '';
+        if (info) {
+          let wr = Math.round(info.wins/info.count*100);
+          let eq = currentEquity();
+          let pnlPct = eq>0?(info.pnl/eq*100):0;
+          let riskPct = eq>0?(info.risk/eq*100):0;
+          let pnlFmt = (info.pnl>=0?'+':'')+'$'+(Math.abs(info.pnl)<10?info.pnl.toFixed(2):Math.round(info.pnl));
+          dayContent = `
+            <div class="day-pnl ${info.pnl>=0?'pos':'neg'}">${pnlFmt}</div>
+            <div class="day-trades" style="color:var(--text3)">${info.count} trade${info.count!==1?'s':''}</div>
+            <div style="font-size:9px;color:var(--text3);margin-top:2px">WR: <span style="color:${wr>=50?'var(--green)':'var(--red)'};font-weight:600">${wr}%</span></div>
+            <div style="font-size:9px;color:var(--text3)">${(pnlPct>=0?'+':'')}${pnlPct.toFixed(1)}% eq${riskPct>0?' · R:'+riskPct.toFixed(1)+'%':''}</div>`;
+        }
+
+        // Weekly summary on Sunday
+        let weekExtra = '';
+        if (jsDay===0) {
+          let wPnl=0,wCount=0,wWins=0,wGrossW=0,wGrossL=0,wRisk=0;
+          for (let wd=d-6;wd<=d;wd++) {
+            if (wd<1||wd>days) continue;
+            if (new Date(y,m,wd).getDay()===6) continue;
+            if (dm[wd]) {
+              wPnl+=dm[wd].pnl; wCount+=dm[wd].count; wWins+=dm[wd].wins;
+              wGrossW+=dm[wd].winPnl; wGrossL+=dm[wd].lossPnl; wRisk+=dm[wd].risk;
+            }
+          }
+          if (wCount>0) {
+            let monD=Math.max(1,d-6);
+            let monDate=`${y}-${String(m+1).padStart(2,'0')}-${String(monD).padStart(2,'0')}`;
+            let rd=0,rp=0;
+            S.deposits.forEach(dep=>{ if(dep.date<monDate) rd+=dep.type==='deposit'?dep.amount:-dep.amount; });
+            trades.filter(t=>t.date<monDate).forEach(t=>rp+=t.pnl);
+            let eqBefore=rd+rp;
+            let wPct=eqBefore>0?(wPnl/eqBefore*100):0;
+            let wWR=Math.round(wWins/wCount*100);
+            let wGrossLAbs=Math.abs(wGrossL);
+            let wRR=wGrossLAbs>0?(wGrossW/wGrossLAbs):wGrossW>0?Infinity:0;
+            let col=wPnl>=0?'var(--green)':'var(--red)';
+            weekExtra=`<div style="margin-top:4px;padding-top:3px;border-top:1px solid rgba(255,255,255,.07);font-size:9px;color:var(--text3)">
+              Wk: <span style="color:${col};font-weight:700">${wPnl>=0?'+':''}$${Math.abs(wPnl)<100?wPnl.toFixed(1):Math.round(wPnl)}</span>
+              <span style="color:${col}">${wPct>=0?'+':''}${wPct.toFixed(1)}%</span>
+              <span style="color:var(--text3)"> · ${wCount}T · WR:${wWR}% · R:R ${wRR===Infinity?'∞':wRR.toFixed(2)}</span>
+            </div>`;
+          }
+        }
+        cells += `<div class="cal-day ${cls} ${isToday}" onclick="openDayModal('${dateStr}')"><div class="day-num">${d}</div>${dayContent}${weekExtra}</div>`;
       }
-      document.getElementById('calBody').innerHTML = cells;
+      calGridBody.innerHTML = cells;
     }
 
     /* ══ DAY MODAL ════════════════════════════════════════════════════════════════ */
@@ -2082,8 +2185,8 @@
       if (!norm) return;
       const chartSymField = document.getElementById('chartSymbol');
       if (chartSymField) chartSymField.value = norm;
-      showPage('dashboard');
-      loadSymbolChart(norm);
+      showPage('dashboard', document.querySelector('.toolbar button:nth-child(2)'));
+      setTimeout(() => loadSymbolChart(norm), 200);
     }
     function clearTrades() { if (confirm('Delete ALL trades? This cannot be undone.')) { S.trades = []; saveS(); renderLog(); updateStatsCards(); } }
 
@@ -2179,13 +2282,22 @@
     function destroyChart(id) { if (chartInst[id]) { chartInst[id].destroy(); delete chartInst[id]; } }
     const CHART_OPTS = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw } } }, scales: { x: { ticks: { color: '#666', font: { size: 10 }, maxRotation: 30, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(51,51,51,.4)' } }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(51,51,51,.4)' } } } };
     function renderDash() {
-      let T = S.trades, dep = totalDeposited(), tot = totalPnl(), eq = currentEquity();
-      if (!T.length) { ['cEquity', 'cDaily', 'cInstr', 'cWin', 'cPct'].forEach(id => { destroyChart(id); let el = document.getElementById(id); if (el) { el.parentElement.innerHTML = el.parentElement.innerHTML.replace(/<canvas[^>]*><\/canvas>/, '<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">Import trades to see charts</div>'); } }); return; }
+      let T = filteredTrades(), dep = totalDeposited(), eq = currentEquity();
+      if (!T.length) { ['cEquity','cDaily','cInstr','cWin','cPct'].forEach(id=>{destroyChart(id);}); return; }
       let sorted = [...T].sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
-      let cum = dep, eqLbls = [], eqData = [];
-      sorted.forEach(t => { cum += t.pnl; eqLbls.push(t.date); eqData.push(+cum.toFixed(2)); });
-      destroyChart('cEquity');
-      let ce = document.getElementById('cEquity'); if (ce) chartInst.cEquity = new Chart(ce, { type: 'line', data: { labels: eqLbls, datasets: [{ data: eqData, borderColor: '#2ecc71', fill: true, backgroundColor: 'rgba(46,204,113,.08)', tension: .3, pointRadius: 0, borderWidth: 2 }] }, options: { ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, tooltip: { callbacks: { label: ctx => '$' + ctx.raw } } }, scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, ticks: { ...CHART_OPTS.scales.y.ticks, callback: v => '$' + v } } } } });
+      // Total equity timeline: deposits + pnl
+      {
+        let allDates = [...new Set([...S.deposits.map(d=>d.date),...sorted.map(t=>t.date)])].sort();
+        let runDep=0,runPnl=0,eqLbls=[],eqData=[];
+        allDates.forEach(date=>{
+          S.deposits.filter(d=>d.date===date).forEach(d=>{ runDep+=d.type==='deposit'?d.amount:-d.amount; });
+          sorted.filter(t=>t.date===date).forEach(t=>{ runPnl+=t.pnl; });
+          eqLbls.push(date); eqData.push(+(runDep+runPnl).toFixed(2));
+        });
+        destroyChart('cEquity');
+        let ce=document.getElementById('cEquity');
+        if(ce) chartInst.cEquity=new Chart(ce,{type:'line',data:{labels:eqLbls,datasets:[{label:'Total Equity',data:eqData,borderColor:'#2ecc71',fill:true,backgroundColor:'rgba(46,204,113,.08)',tension:.3,pointRadius:0,borderWidth:2}]},options:{...CHART_OPTS,plugins:{...CHART_OPTS.plugins,tooltip:{callbacks:{label:ctx=>'$'+ctx.raw}}},scales:{...CHART_OPTS.scales,y:{...CHART_OPTS.scales.y,ticks:{...CHART_OPTS.scales.y.ticks,callback:v=>'$'+v}}}}});
+      }
       let bd = {}; T.forEach(t => { bd[t.date] = (bd[t.date] || 0) + t.pnl; }); let dd = Object.keys(bd).sort(), ddv = dd.map(d => +bd[d].toFixed(2));
       destroyChart('cDaily'); let cd = document.getElementById('cDaily'); if (cd) chartInst.cDaily = new Chart(cd, { type: 'bar', data: { labels: dd, datasets: [{ data: ddv, backgroundColor: ddv.map(v => v >= 0 ? 'rgba(46,204,113,.7)' : 'rgba(231,76,60,.7)'), borderRadius: 3, borderWidth: 0 }] }, options: { ...CHART_OPTS, scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, ticks: { ...CHART_OPTS.scales.y.ticks, callback: v => '$' + v } } } } });
       let im = {}; T.forEach(t => { im[t.sym] = (im[t.sym] || 0) + t.pnl; }); let instrs = Object.entries(im).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 14);
@@ -2253,20 +2365,24 @@
     }
 
     function initTVChart() {
-      if (tvChart) return;
-      const container = document.getElementById('chartWrapper'); if (!container) return;
+      const container = document.getElementById('chartWrapper');
+      if (!container) return;
       container.innerHTML = '';
-      tvChart = LightweightCharts.createChart(container, {
-        layout: { background: { color: '#111' }, textColor: '#ddd' },
-        grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
-        rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
-        timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false },
-        localization: { dateFormat: 'yyyy-MM-dd' }
-      });
-      tvCandleSeries = tvChart.addCandlestickSeries({
-        upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-        wickUpColor: '#26a69a', wickDownColor: '#ef5350', borderColor: '#000'
-      });
+      tvChart = null; tvCandleSeries = null;
+      try {
+        tvChart = LightweightCharts.createChart(container, {
+          layout: { background: { color: '#111' }, textColor: '#ddd' },
+          grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+          rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
+          timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false }
+        });
+        // lightweight-charts v5 uses addSeries(CandlestickSeries), v4 uses addCandlestickSeries
+        if (LightweightCharts.CandlestickSeries) {
+          tvCandleSeries = tvChart.addSeries(LightweightCharts.CandlestickSeries, { upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
+        } else {
+          tvCandleSeries = tvChart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
+        }
+      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; }
     }
 
     function normalizeSymbols(sym) { return sym.trim().toUpperCase().replace(/\s+/g, ''); }
@@ -2291,12 +2407,14 @@
     async function fetchSymbolHistory(symbol) {
       const sym = normalizeSymbols(symbol);
       if (!sym) throw new Error('Ticker is required');
-      const key = (getMarketConfig().apiKey || '').trim() || '6cddc0834c6253cb933afff572dffa6d';
+      const key = (getMarketConfig().apiKey || '').trim();
+      if (!key) throw new Error('No API key set. Enter your financialdata.net API key in Market data provider settings on the Dashboard.');
+      // Try stock-prices endpoint
       const url = `https://financialdata.net/api/v1/stock-prices?identifier=${encodeURIComponent(sym)}&key=${key}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`financialdata.net error ${res.status}`);
+      if (!res.ok) throw new Error(`financialdata.net error ${res.status} — check your API key`);
       const json = await res.json();
-      if (!Array.isArray(json) || !json.length) throw new Error('No price data returned for ' + sym);
+      if (!Array.isArray(json) || !json.length) throw new Error('No price data for ' + sym + '. Check the symbol is correct and supported by financialdata.net');
       const data = json
         .filter(r => r.date && r.open != null && r.high != null && r.low != null && r.close != null)
         .map(r => ({ time: r.date.slice(0, 10), open: +r.open, high: +r.high, low: +r.low, close: +r.close }))
@@ -2308,19 +2426,22 @@
     async function loadSymbolChart(symbol) {
       const symField = document.getElementById('chartSymbol');
       const sym = normalizeSymbols(symbol || (symField ? symField.value : ''));
-      if (!sym) { setChartStatus('Type a ticker symbol before loading.'); return; }
-      setChartStatus(`Loading ${sym} price history...`);
+      if (!sym) { setChartStatus('Type a ticker symbol (e.g. AAPL) then click Load chart.'); return; }
+      setChartStatus('Loading ' + sym + '...');
       try {
         initTVChart();
+        if (!tvChart || !tvCandleSeries) { setChartStatus('Chart failed to initialise. Open browser console (F12) for details.'); return; }
         const data = await fetchSymbolHistory(sym);
-        if (!data.length) throw new Error('No candle data');
+        if (!data.length) throw new Error('No candle data returned');
         tvCandleSeries.setData(data);
         const markers = buildTradeMarkers(sym);
-        if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
+        try { if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers); } catch(me) {}
         tvLoadedSymbol = sym;
-        setChartStatus(`${sym} loaded · ${markers.length / 2} ${markers.length === 0 ? 'trade' : markers.length === 2 ? 'trade' : 'trades'} plotted on chart.`);
+        tvChart.timeScale().fitContent();
+        const tc = Math.floor(markers.length / 2);
+        setChartStatus(sym + ' loaded — ' + data.length + ' candles · ' + tc + ' trade' + (tc!==1?'s':'') + ' marked.');
       } catch (err) {
-        setChartStatus(`Unable to load ${sym}: ${err.message}`);
+        setChartStatus('Could not load ' + sym + ': ' + err.message);
       }
     }
 
