@@ -23,7 +23,7 @@
       --border2: #444;
       --text: #e8eaf0;
       --text2: #aaa;
-      --text3: #666;
+      --text3: #c2c2c2;
       --green: #2ecc71;
       --green2: #27ae60;
       --red: #e74c3c;
@@ -555,7 +555,7 @@
       color: var(--text2);
       cursor: pointer;
       padding: 6px 14px;
-      font-size: 14px
+      font-size: 18px
     }
 
     .cal-nav button:hover {
@@ -563,7 +563,7 @@
     }
 
     .cal-month-stats {
-      font-size: 12px;
+      font-size: 18px;
       color: var(--text3)
     }
 
@@ -580,7 +580,7 @@
 
     .cal-day-head {
       text-align: center;
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text3);
       padding: 4px 0;
       text-transform: uppercase;
@@ -630,12 +630,12 @@
     }
 
     .cal-day .day-pnl {
-      font-size: 12px;
+      font-size: 16px;
       font-weight: 700
     }
 
     .cal-day .day-trades {
-      font-size: 10px;
+      font-size: 14px;
       color: var(--text3)
     }
 
@@ -958,7 +958,7 @@
     }
 
     .wk-target {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--gold);
       margin-bottom: 8px
     }
@@ -968,7 +968,7 @@
     }
 
     .wk-lbl {
-      font-size: 10px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: .07em;
       color: var(--text3);
@@ -987,7 +987,7 @@
       background: rgba(59, 130, 246, .1);
       border: 1px solid rgba(59, 130, 246, .2);
       border-radius: 3px;
-      font-size: 10px;
+      font-size: 13px;
       color: var(--blue);
       margin: 2px
     }
@@ -1136,12 +1136,12 @@
         <div class="header-controls"><span class="trade-count" id="sc-count">0</span></div>
       </div>
       <div class="stat-value" id="sc-pnl">$0.00</div>
-      <div id="sc-pnl-pct" style="font-size:11px;margin-top:3px;color:var(--text3)">ROE: —</div>
+      <div id="sc-pnl-pct" style="font-size:13px;margin-top:3px;color:var(--text3)">ROE: —</div>
     </div>
     <div class="stat-card">
       <div class="stat-header"><span>Equity</span></div>
       <div class="stat-value" id="sc-equity">$0.00</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px" id="sc-roe">ROE: —</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:3px" id="sc-roe">ROE: —</div>
     </div>
     <div class="stat-card">
       <div class="stat-header"><span>Win Rate</span></div>
@@ -1151,17 +1151,17 @@
         <div class="loss" style="flex:1"></div>
       </div>
       <div class="stat-gauge-labels"><span id="sc-wins">0W</span><span id="sc-losses">0L</span></div>
-      <div id="sc-pf" style="font-size:11px;margin-top:4px;color:var(--text3)">Profit factor: —</div>
+      <div id="sc-pf" style="font-size:14px;margin-top:4px;color:var(--text3)">Profit factor: —</div>
     </div>
     <div class="stat-card">
       <div class="stat-header"><span>Avg Win / Loss</span></div>
       <div style="display:flex;gap:12px;margin-top:4px">
         <div>
-          <div style="font-size:10px;color:var(--text3)">Avg win</div>
+          <div style="font-size:17px;color:var(--text3)">Avg win</div>
           <div class="stat-value positive" id="sc-avgw" style="font-size:16px">$0</div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3)">Avg loss</div>
+          <div style="font-size:15px;color:var(--text3)">Avg loss</div>
           <div class="stat-value negative" id="sc-avgl" style="font-size:16px">$0</div>
         </div>
       </div>
@@ -1169,7 +1169,7 @@
     <div class="stat-card">
       <div class="stat-header"><span>R:R / Expectancy</span></div>
       <div class="stat-value" id="sc-rr">0</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px" id="sc-exp">Exp: $0/trade</div>
+      <div style="font-size:14px;color:var(--text3);margin-top:3px" id="sc-exp">Exp: $0/trade</div>
     </div>
   </div>
 
