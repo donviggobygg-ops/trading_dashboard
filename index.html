@@ -1699,7 +1699,7 @@
     const MASSIVE_BASE = ON_GH_PAGES ? 'https://api.massive.com' : '/massiveapi';
     const ROBO_BASE    = ON_GH_PAGES ? 'https://api.stockstrader.com' : '/rbapi';
     const FD_BASE      = ON_GH_PAGES ? 'https://financialdata.net' : '/fdapi';
-    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvVolumeSeries = null, tvLoadedSymbol = '', tradeChartInstance = null;
+    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvVolumeSeries = null, tvSma10 = null, tvSma50 = null, tvLoadedSymbol = '', tradeChartInstance = null;
 
     // Default trade criteria checklist
     const DEFAULT_CRITERIA = [
@@ -2714,11 +2714,28 @@
         if (tvVolumeSeries) {
           tvVolumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
         }
-      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; tvVolumeSeries=null; }
+        const LineSeries = LightweightCharts.LineSeries;
+        const lineSeriesOpts = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+        if (LineSeries) {
+          tvSma10 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#2196F3', lineWidth: 1 });
+          tvSma50 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#f5a623', lineWidth: 1 });
+        }
+      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; tvVolumeSeries=null; tvSma10=null; tvSma50=null; }
     }
 
     function normalizeSymbols(sym) {
       return sym.trim().toUpperCase().replace(/\s+/g, '').replace(/\.[A-Z0-9]+$/, '');
+    }
+
+    function calcSMA(data, length) {
+      const result = [];
+      for (let i = 0; i < data.length; i++) {
+        if (i < length - 1) { result.push({ time: data[i].time }); continue; }
+        let sum = 0;
+        for (let j = i - length + 1; j <= i; j++) sum += data[j].close;
+        result.push({ time: data[i].time, value: sum / length });
+      }
+      return result;
     }
 
     function buildTradeMarkers(symbol) {
@@ -2750,6 +2767,8 @@
         const data = await fetchSymbolHistory(sym);
         if (!data.length) throw new Error('No candle data returned');
         tvCandleSeries.setData(data);
+        if (tvSma10) tvSma10.setData(calcSMA(data, 10));
+        if (tvSma50) tvSma50.setData(calcSMA(data, 50));
         if (tvVolumeSeries) {
           tvVolumeSeries.setData(data.map(c => ({
             time: c.time, value: c.volume,
@@ -2849,6 +2868,14 @@
         }
         cs.setData(data);
         cs.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.4 } });
+        const LineSeries5m = LightweightCharts.LineSeries;
+        const lineOpts5m = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+        if (LineSeries5m) {
+          const sma10 = chart.addSeries(LineSeries5m, { ...lineOpts5m, color: '#2196F3', lineWidth: 1 });
+          const sma50 = chart.addSeries(LineSeries5m, { ...lineOpts5m, color: '#f5a623', lineWidth: 1 });
+          sma10.setData(calcSMA(data, 10));
+          sma50.setData(calcSMA(data, 50));
+        }
         const HistSeries5m = LightweightCharts.HistogramSeries;
         let volSeries5m = null;
         if (HistSeries5m) {
