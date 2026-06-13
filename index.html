@@ -2728,10 +2728,10 @@
       return trades.flatMap(t => {
         const timeEntry = t.openDate || t.date;
         const markers = [];
-        markers.push({ time: timeEntry, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', size: 1, text: `Buy @ $${t.entry?.toFixed(2) ?? ''}` });
+        markers.push({ time: timeEntry, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', size: 0.5, text: `Buy @ $${t.entry?.toFixed(2) ?? ''}` });
         if (t.exit) {
           const ec = t.pnl >= 0 ? '#26a69a' : '#e91e63';
-          markers.push({ time: t.date, position: 'aboveBar', color: ec, shape: 'arrowDown', size: 1, text: `Sell @ $${t.exit.toFixed(2)}` });
+          markers.push({ time: t.date, position: 'aboveBar', color: ec, shape: 'arrowDown', size: 0.5, text: `Sell @ $${t.exit.toFixed(2)}` });
         } else {
           markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 1, text: 'Open' });
         }
@@ -2899,7 +2899,7 @@
           entryCandle = findEntryCandleByPrice(entryDayCandles, t.entry);
         }
         if (entryCandle) {
-          tradeMarkers.push({ time: entryCandle.time, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', size: 1, text: `Buy @ $${t.entry?.toFixed(2) ?? ''}` });
+          tradeMarkers.push({ time: entryCandle.time, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', size: 0.5, text: `Buy @ $${t.entry?.toFixed(2) ?? ''}` });
         }
         if (t.exit) {
           const exitDayCandles = candlesForDay(exitDate);
@@ -2911,7 +2911,7 @@
           }
           if (exitCandle) {
             const ec = t.pnl >= 0 ? '#26a69a' : '#e91e63';
-            tradeMarkers.push({ time: exitCandle.time, position: 'aboveBar', color: ec, shape: 'arrowDown', size: 1, text: `Sell @ $${t.exit.toFixed(2)}` });
+            tradeMarkers.push({ time: exitCandle.time, position: 'aboveBar', color: ec, shape: 'arrowDown', size: 0.5, text: `Sell @ $${t.exit.toFixed(2)}` });
           }
         } else {
           // Open trade: today marker
