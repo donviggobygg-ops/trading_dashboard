@@ -2715,7 +2715,7 @@
           tvVolumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
         }
         const LineSeries = LightweightCharts.LineSeries;
-        const lineSeriesOpts = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+        const lineSeriesOpts = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
         if (LineSeries) {
           tvSma10 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#2196F3', lineWidth: 1 });
           tvSma50 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#f5a623', lineWidth: 1 });
@@ -2869,7 +2869,7 @@
         cs.setData(data);
         cs.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.4 } });
         const LineSeries5m = LightweightCharts.LineSeries;
-        const lineOpts5m = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+        const lineOpts5m = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
         if (LineSeries5m) {
           const sma10 = chart.addSeries(LineSeries5m, { ...lineOpts5m, color: '#2196F3', lineWidth: 1 });
           const sma50 = chart.addSeries(LineSeries5m, { ...lineOpts5m, color: '#f5a623', lineWidth: 1 });
