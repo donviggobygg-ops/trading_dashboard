@@ -1699,7 +1699,7 @@
     const MASSIVE_BASE = ON_GH_PAGES ? 'https://api.massive.com' : '/massiveapi';
     const ROBO_BASE    = ON_GH_PAGES ? 'https://api.stockstrader.com' : '/rbapi';
     const FD_BASE      = ON_GH_PAGES ? 'https://financialdata.net' : '/fdapi';
-    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvLoadedSymbol = '', tradeChartInstance = null;
+    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvVolumeSeries = null, tvLoadedSymbol = '', tradeChartInstance = null;
 
     // Default trade criteria checklist
     const DEFAULT_CRITERIA = [
@@ -2525,7 +2525,7 @@
       if (!arr.length) throw new Error('No price data for ' + sym + '. Check symbol spelling and that your plan covers this instrument.');
       const data = arr
         .filter(r => r.date && r.open != null && r.high != null && r.low != null && r.close != null)
-        .map(r => ({ time: r.date.slice(0, 10), open: +r.open, high: +r.high, low: +r.low, close: +r.close }))
+        .map(r => ({ time: r.date.slice(0, 10), open: +r.open, high: +r.high, low: +r.low, close: +r.close, volume: +(r.volume ?? r.vol ?? 0) }))
         .sort((a, b) => a.time.localeCompare(b.time));
       if (!data.length) throw new Error('No usable candles for ' + sym);
       return data;
@@ -2603,7 +2603,7 @@
       const arr = json.results || [];
       if (!arr.length) throw new Error(`No 5-minute bars for ${sym} (${from} → ${to}). Market may have been closed, or check the symbol name.`);
       return arr
-        .map(r => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c }))
+        .map(r => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c, volume: r.v || 0 }))
         .filter(c => isMarketHours(c.time))
         .sort((a, b) => a.time - b.time);
     }
@@ -2676,7 +2676,7 @@
       const container = document.getElementById('chartWrapper');
       if (!container) return;
       container.innerHTML = '';
-      tvChart = null; tvCandleSeries = null;
+      tvChart = null; tvCandleSeries = null; tvVolumeSeries = null;
       try {
         tvChart = LightweightCharts.createChart(container, {
           autoSize: true,
@@ -2704,8 +2704,17 @@
         } else {
           tvCandleSeries = tvChart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
         }
-        tvCandleSeries.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.2 } });
-      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; }
+        tvCandleSeries.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.4 } });
+        const HistSeries = LightweightCharts.HistogramSeries;
+        if (HistSeries) {
+          tvVolumeSeries = tvChart.addSeries(HistSeries, { priceFormat: { type: 'volume' }, priceScaleId: '' });
+        } else if (tvChart.addHistogramSeries) {
+          tvVolumeSeries = tvChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
+        }
+        if (tvVolumeSeries) {
+          tvVolumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
+        }
+      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; tvVolumeSeries=null; }
     }
 
     function normalizeSymbols(sym) {
@@ -2742,6 +2751,12 @@
         const data = await fetchSymbolHistory(sym);
         if (!data.length) throw new Error('No candle data returned');
         tvCandleSeries.setData(data);
+        if (tvVolumeSeries) {
+          tvVolumeSeries.setData(data.map(c => ({
+            time: c.time, value: c.volume,
+            color: c.close >= c.open ? '#26a69a' : '#ef5350',
+          })));
+        }
         const markers = buildTradeMarkers(sym);
         try {
           if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
@@ -2829,7 +2844,21 @@
           cs = chart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
         }
         cs.setData(data);
-        cs.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.2 } });
+        cs.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.4 } });
+        const HistSeries5m = LightweightCharts.HistogramSeries;
+        let volSeries5m = null;
+        if (HistSeries5m) {
+          volSeries5m = chart.addSeries(HistSeries5m, { priceFormat: { type: 'volume' }, priceScaleId: '' });
+        } else if (chart.addHistogramSeries) {
+          volSeries5m = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
+        }
+        if (volSeries5m) {
+          volSeries5m.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
+          volSeries5m.setData(data.map(c => ({
+            time: c.time, value: c.volume,
+            color: c.close >= c.open ? '#26a69a' : '#ef5350',
+          })));
+        }
 
         const LS = LightweightCharts.LineStyle ?? {};
         const Dashed = LS.Dashed ?? 2;
