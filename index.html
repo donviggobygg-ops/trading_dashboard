@@ -1074,6 +1074,15 @@
       color: var(--text)
     }
 
+    /* ─── TIMEFRAME BUTTONS ───────────────────────────────────────────────────── */
+    .tf-btn {
+      padding: 3px 8px; font-size: 11px; background: var(--bg3);
+      border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text2); cursor: pointer; transition: background .15s, color .15s;
+    }
+    .tf-btn:hover { background: var(--bg2); color: var(--text); }
+    .tf-active { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+
     /* ─── TABS (hidden, controlled via toolbar) ───────────────────────────────── */
     .page {
       display: none
@@ -1253,44 +1262,74 @@
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- PAGE: TRADING CHART                                                        -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <div id="page-chart" class="page main-content">
-    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">
-      <!-- Symbol loader -->
-      <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:200px">
-        <input id="chartSymbol" placeholder="AAPL"
-          style="width:130px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none"
-          onkeyup="if(event.key==='Enter')loadSymbolChart()">
-        <button class="btn sm primary" onclick="loadSymbolChart()">Load chart</button>
-      </div>
-      <!-- Market data settings (collapsible) -->
-      <details style="flex:1;min-width:260px">
-        <summary style="cursor:pointer;font-size:12px;color:var(--text2);user-select:none">
-          Market data settings &nbsp;<span style="font-size:10px;color:var(--text3)">Massive.com &amp; FinancialData.net</span>
-          <span id="massiveWsStatus" style="margin-left:10px;font-size:11px;color:var(--text3)">WebSocket: disconnected</span>
-        </summary>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
-          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-            <div class="field" style="flex:1;min-width:220px">
-              <label>Massive.com API key <span style="font-size:10px;color:var(--text3)">(hardcoded — override if needed)</span></label>
-              <input id="massiveApiKey" placeholder="Leave blank to use default key" type="password" autocomplete="off">
-            </div>
-            <button class="btn sm primary" onclick="saveMassiveKey()" style="margin-bottom:2px">Save &amp; reconnect</button>
-            <span id="massiveKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-            <div class="field" style="flex:1;min-width:220px">
-              <label>FinancialData.net API key <span style="font-size:10px;color:var(--text3)">(daily chart history)</span></label>
-              <input id="fdApiKey" placeholder="Paste key from financialdata.net">
-            </div>
-            <button class="btn sm" onclick="saveFdKey()" style="margin-bottom:2px">Save</button>
-            <span id="fdKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
+  <div id="page-chart" class="page" style="height:calc(100vh - 48px);padding:0;overflow:hidden">
+    <div style="display:flex;height:100%">
+
+      <!-- ── Watchlist sidebar ──────────────────────────────────────────────── -->
+      <div style="width:155px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2)">
+        <div style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;border-bottom:1px solid var(--border)">Watchlist</div>
+        <div id="watchlistItems" style="flex:1;overflow-y:auto"></div>
+        <div style="padding:6px;border-top:1px solid var(--border)">
+          <div style="display:flex;gap:4px">
+            <input id="watchlistInput" placeholder="Add symbol" style="flex:1;min-width:0;padding:4px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none" onkeyup="if(event.key==='Enter'){addToWatchlist();event.preventDefault()}">
+            <button onclick="addToWatchlist()" style="padding:4px 8px;font-size:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);cursor:pointer;line-height:1">+</button>
           </div>
         </div>
-      </details>
-    </div>
-    <div id="chartStatus" style="margin-bottom:8px;font-size:12px;color:var(--text3)">Enter a ticker symbol and press Enter or click Load chart.</div>
-    <div id="chartWrapper"
-      style="height:calc(100vh - 140px);min-height:500px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg);">
+        <details style="border-top:1px solid var(--border);flex-shrink:0">
+          <summary style="padding:7px 10px;font-size:10px;color:var(--text3);cursor:pointer;user-select:none;list-style:none">⚙ Market data</summary>
+          <div style="padding:8px;display:flex;flex-direction:column;gap:8px">
+            <div>
+              <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Massive.com key</div>
+              <input id="massiveApiKey" placeholder="Default key" type="password" autocomplete="off" style="width:100%;padding:4px 6px;font-size:11px;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text)">
+              <button class="btn sm primary" onclick="saveMassiveKey()" style="width:100%;margin-top:4px;font-size:11px">Save &amp; reconnect</button>
+              <span id="massiveKeySaved" style="display:none;font-size:10px;color:var(--green)">Saved ✓</span>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text3);margin-bottom:3px">FinancialData.net key</div>
+              <input id="fdApiKey" placeholder="Paste key" style="width:100%;padding:4px 6px;font-size:11px;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text)">
+              <button class="btn sm" onclick="saveFdKey()" style="width:100%;margin-top:4px;font-size:11px">Save</button>
+              <span id="fdKeySaved" style="display:none;font-size:10px;color:var(--green)">Saved ✓</span>
+            </div>
+            <div id="massiveWsStatus" style="font-size:10px;color:var(--text3)">WS: disconnected</div>
+          </div>
+        </details>
+      </div>
+
+      <!-- ── Main chart area ───────────────────────────────────────────────── -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+        <!-- Top control bar -->
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0">
+          <input id="chartSymbol" placeholder="AAPL"
+            style="width:80px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none;font-size:13px;flex-shrink:0"
+            onkeyup="if(event.key==='Enter')loadSymbolChart()">
+          <button class="btn sm primary" onclick="loadSymbolChart()" style="padding:5px 10px;flex-shrink:0">Load</button>
+          <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+          <!-- Timeframe buttons -->
+          <div id="tfButtons" style="display:flex;gap:2px;flex-shrink:0">
+            <button id="tf-5m"  onclick="setTimeframe('5m')"  class="tf-btn">5m</button>
+            <button id="tf-15m" onclick="setTimeframe('15m')" class="tf-btn">15m</button>
+            <button id="tf-1H"  onclick="setTimeframe('1H')"  class="tf-btn">1H</button>
+            <button id="tf-4H"  onclick="setTimeframe('4H')"  class="tf-btn">4H</button>
+            <button id="tf-D"   onclick="setTimeframe('D')"   class="tf-btn tf-active">D</button>
+            <button id="tf-W"   onclick="setTimeframe('W')"   class="tf-btn">W</button>
+          </div>
+          <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+          <!-- Symbol info bar -->
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
+            <span id="chartInfoSym"    style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap"></span>
+            <span id="chartInfoPrice"  style="font-weight:600;font-size:13px;white-space:nowrap"></span>
+            <span id="chartInfoChange" style="font-size:12px;white-space:nowrap"></span>
+            <span id="chartInfoVol"    style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
+          </div>
+        </div>
+
+        <!-- Status bar -->
+        <div id="chartStatus" style="font-size:11px;color:var(--text3);padding:2px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0">Enter a ticker and press Enter.</div>
+
+        <!-- Chart -->
+        <div id="chartWrapper" style="flex:1;min-height:0;background:var(--bg)"></div>
+      </div>
     </div>
   </div>
 
@@ -1714,7 +1753,10 @@
     const MASSIVE_BASE = ON_GH_PAGES ? 'https://api.massive.com' : '/massiveapi';
     const ROBO_BASE    = ON_GH_PAGES ? 'https://api.stockstrader.com' : '/rbapi';
     const FD_BASE      = ON_GH_PAGES ? 'https://financialdata.net' : '/fdapi';
-    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvVolumeSeries = null, tvSma10 = null, tvSma50 = null, tvLoadedSymbol = '', tradeChartInstance = null;
+    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvVolumeSeries = null, tvSma10 = null, tvSma50 = null, tvEma20 = null, tvLoadedSymbol = '', tvTimeframe = 'D', tradeChartInstance = null;
+    let watchlist = [];
+    const WATCHLIST_KEY = 'tj7_watchlist';
+    const WATCHLIST_DEFAULT = ['AAPL','MSFT','NVDA','SPY','QQQ','AMZN'];
 
     // Default trade criteria checklist
     const DEFAULT_CRITERIA = [
@@ -1807,7 +1849,7 @@
       document.getElementById('page-' + p).classList.add('active');
       if (btn) btn.classList.add('active-tab-btn');
       if (p === 'dashboard') setTimeout(renderDash, 0);
-      if (p === 'chart') { loadFdKey(); loadMassiveKey(); setTimeout(() => { if (tvLoadedSymbol) loadSymbolChart(tvLoadedSymbol); }, 50); }
+      if (p === 'chart') { loadFdKey(); loadMassiveKey(); loadWatchlist(); renderWatchlist(); setTimeout(() => { if (tvLoadedSymbol) loadSymbolChart(tvLoadedSymbol); }, 50); }
       if (p === 'tradingview') initTVWidget();
       if (p === 'log') renderLog();
       if (p === 'deposits') renderDeposits();
@@ -2717,7 +2759,7 @@
       const container = document.getElementById('chartWrapper');
       if (!container) return;
       container.innerHTML = '';
-      tvChart = null; tvCandleSeries = null; tvVolumeSeries = null;
+      tvChart = null; tvCandleSeries = null; tvVolumeSeries = null; tvSma10 = null; tvSma50 = null; tvEma20 = null;
       try {
         tvChart = LightweightCharts.createChart(container, {
           autoSize: true,
@@ -2760,13 +2802,113 @@
         if (LineSeries) {
           tvSma10 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#2196F3', lineWidth: 1 });
           tvSma50 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#f5a623', lineWidth: 1 });
+          tvEma20 = tvChart.addSeries(LineSeries, { ...lineSeriesOpts, color: '#a78bfa', lineWidth: 1 });
         }
-      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; tvVolumeSeries=null; tvSma10=null; tvSma50=null; }
+      } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; tvVolumeSeries=null; tvSma10=null; tvSma50=null; tvEma20=null; }
     }
 
     function normalizeSymbols(sym) {
       return sym.trim().toUpperCase().replace(/\s+/g, '').replace(/\.[A-Z0-9]+$/, '');
     }
+
+    function calcEMA(data, length) {
+      const result = [], k = 2 / (length + 1);
+      let ema;
+      for (let i = 0; i < data.length; i++) {
+        if (i < length - 1) { result.push({ time: data[i].time }); continue; }
+        if (ema === undefined) {
+          let s = 0; for (let j = i - length + 1; j <= i; j++) s += data[j].close;
+          ema = s / length;
+        } else { ema = data[i].close * k + ema * (1 - k); }
+        result.push({ time: data[i].time, value: +ema.toFixed(4) });
+      }
+      return result;
+    }
+
+    async function fetchMassiveCandles(symbol, multiplier, timespan, fromDate, toDate) {
+      const sym = normalizeSymbols(symbol);
+      const key = getMassiveKey();
+      if (!key) throw new Error('Missing Massive.com API key.');
+      const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(sym)}/range/${multiplier}/${timespan}/${fromDate}/${toDate}?apiKey=${key}&limit=5000&sort=asc&adjusted=true`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Massive.com ${res.status}`);
+      let json; try { json = await res.json(); } catch(e) { throw new Error('Non-JSON from Massive.com'); }
+      if (json.status === 'ERROR') throw new Error('Massive.com: ' + (json.error || json.message || 'error'));
+      const arr = json.results || [];
+      if (!arr.length) throw new Error(`No ${multiplier}${timespan} data for ${sym} (${fromDate}→${toDate})`);
+      const candles = arr.map(r => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c, volume: r.v || 0 }));
+      return (timespan === 'minute' ? candles.filter(c => isMarketHours(c.time)) : candles).sort((a, b) => a.time - b.time);
+    }
+
+    function getDateRangeForTimeframe(tf) {
+      const now = new Date(), today = now.toISOString().slice(0, 10);
+      const ago = n => new Date(now - n * 864e5).toISOString().slice(0, 10);
+      return { '5m': ago(7), '15m': ago(14), '1H': ago(35), '4H': ago(100), 'W': ago(365 * 3) }[tf] || ago(7);
+    }
+
+    function setTimeframe(tf) {
+      tvTimeframe = tf;
+      document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('tf-active'));
+      const btn = document.getElementById('tf-' + tf);
+      if (btn) btn.classList.add('tf-active');
+      if (tvLoadedSymbol) loadSymbolChart(tvLoadedSymbol);
+    }
+
+    function updateChartInfoBar(sym, data) {
+      document.getElementById('chartInfoSym').textContent = sym;
+      if (!data || !data.length) return;
+      const last = data[data.length - 1];
+      const prev = data.length > 1 ? data[data.length - 2] : null;
+      const change = prev ? last.close - prev.close : 0;
+      const pct = prev ? (change / prev.close * 100) : 0;
+      const col = change >= 0 ? 'var(--green)' : 'var(--red)';
+      document.getElementById('chartInfoPrice').textContent = '$' + last.close.toFixed(2);
+      document.getElementById('chartInfoPrice').style.color = col;
+      document.getElementById('chartInfoChange').textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + ' (' + (change >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+      document.getElementById('chartInfoChange').style.color = col;
+      const vol = last.volume;
+      document.getElementById('chartInfoVol').textContent = vol ? 'Vol ' + (vol >= 1e6 ? (vol/1e6).toFixed(1)+'M' : vol >= 1e3 ? (vol/1e3).toFixed(0)+'K' : vol) : '';
+    }
+
+    // ── Watchlist ──────────────────────────────────────────────────────────────
+    function loadWatchlist() {
+      try { watchlist = JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || WATCHLIST_DEFAULT; } catch(e) { watchlist = [...WATCHLIST_DEFAULT]; }
+    }
+    function saveWatchlist() { try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist)); } catch(e) {} }
+
+    function renderWatchlist() {
+      const el = document.getElementById('watchlistItems');
+      if (!el) return;
+      massiveSubscribe(watchlist);
+      if (!watchlist.length) { el.innerHTML = '<div style="padding:10px 8px;font-size:11px;color:var(--text3)">Add symbols below.</div>'; return; }
+      el.innerHTML = watchlist.map(sym => {
+        const p = massiveLiveQuotes[sym];
+        const pStr = p ? '$' + p.toFixed(2) : '—';
+        const active = tvLoadedSymbol === sym;
+        return `<div onclick="loadSymbolChart('${sym}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:${active?'var(--bg3)':'transparent'}" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='${active?'var(--bg3)':'transparent'}'">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:${active?'var(--accent)':'var(--text)'}">${sym}</div>
+            <div style="font-size:11px;color:var(--text3)">${pStr}</div>
+          </div>
+          <button onclick="event.stopPropagation();removeFromWatchlist('${sym}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px;line-height:1;opacity:.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">×</button>
+        </div>`;
+      }).join('');
+    }
+
+    function addToWatchlist() {
+      const input = document.getElementById('watchlistInput');
+      const sym = normalizeSymbols(input?.value || '');
+      if (!sym || watchlist.includes(sym)) { if (input) input.value = ''; return; }
+      watchlist.push(sym); saveWatchlist(); renderWatchlist();
+      if (input) input.value = '';
+    }
+
+    function removeFromWatchlist(sym) {
+      watchlist = watchlist.filter(s => s !== sym); saveWatchlist(); renderWatchlist();
+    }
+
+    // Refresh watchlist prices from live quotes every 2 seconds when on chart tab
+    setInterval(() => { if (document.getElementById('page-chart')?.classList.contains('active')) renderWatchlist(); }, 2000);
 
     function calcSMA(data, length) {
       const result = [];
@@ -2801,35 +2943,52 @@
       const symField = document.getElementById('chartSymbol');
       const sym = normalizeSymbols(symbol || (symField ? symField.value : ''));
       if (!sym) { setChartStatus('Type a ticker symbol (e.g. AAPL) then click Load chart.'); return; }
-      setChartStatus('Loading ' + sym + '...');
+      if (symField) symField.value = sym;
+      setChartStatus('Loading ' + sym + ' [' + tvTimeframe + ']…');
       try {
         initTVChart();
-        if (!tvChart || !tvCandleSeries) { setChartStatus('Chart failed to initialise. Open browser console (F12) for details.'); return; }
-        const data = await fetchSymbolHistory(sym);
+        if (!tvChart || !tvCandleSeries) { setChartStatus('Chart failed to initialise.'); return; }
+
+        let data;
+        const tf = tvTimeframe;
+        if (tf === 'D') {
+          data = await fetchSymbolHistory(sym);
+        } else {
+          const from = getDateRangeForTimeframe(tf);
+          const today = new Date().toISOString().slice(0, 10);
+          const mult  = { '5m': 5, '15m': 15, '1H': 1, '4H': 4, 'W': 1 }[tf];
+          const span  = { '5m': 'minute', '15m': 'minute', '1H': 'hour', '4H': 'hour', 'W': 'week' }[tf];
+          data = await fetchMassiveCandles(sym, mult, span, from, today);
+        }
         if (!data.length) throw new Error('No candle data returned');
+
         tvCandleSeries.setData(data);
         if (tvSma10) tvSma10.setData(calcSMA(data, 10));
         if (tvSma50) tvSma50.setData(calcSMA(data, 50));
+        if (tvEma20) tvEma20.setData(calcEMA(data, 20));
         if (tvVolumeSeries) {
-          tvVolumeSeries.setData(data.map(c => ({
-            time: c.time, value: c.volume,
-            color: c.close >= c.open ? '#26a69a' : '#ef5350',
-          })));
+          tvVolumeSeries.setData(data.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#26a69a' : '#ef5350' })));
         }
-        const markers = buildTradeMarkers(sym);
-        try {
-          if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
-          else if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
-        } catch(me) {}
-        // SL price lines for open trades on the daily chart
-        const LS2 = LightweightCharts.LineStyle ?? {};
-        S.trades.filter(t => normalizeSymbols(t.sym) === sym && !t.exit && t.stopLoss).forEach(t => {
-          tvCandleSeries.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: LS2.Dashed ?? 2, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
-        });
+
+        // Trade markers & SL lines only on daily/weekly
+        if (tf === 'D' || tf === 'W') {
+          const markers = buildTradeMarkers(sym);
+          try {
+            if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
+            else if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
+          } catch(me) {}
+          const LS2 = LightweightCharts.LineStyle ?? {};
+          S.trades.filter(t => normalizeSymbols(t.sym) === sym && !t.exit && t.stopLoss).forEach(t => {
+            tvCandleSeries.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: LS2.Dashed ?? 2, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
+          });
+        }
+
         tvLoadedSymbol = sym;
         tvChart.timeScale().fitContent();
-        const tc = Math.floor(markers.length / 2);
-        setChartStatus(sym + ' loaded — ' + data.length + ' candles · ' + tc + ' trade' + (tc!==1?'s':'') + ' marked.');
+        updateChartInfoBar(sym, data);
+        renderWatchlist();
+        massiveSubscribe([sym]);
+        setChartStatus(sym + ' · ' + tf + ' · ' + data.length + ' candles');
       } catch (err) {
         setChartStatus('Could not load ' + sym + ': ' + err.message);
       }
