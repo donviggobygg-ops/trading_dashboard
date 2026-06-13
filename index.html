@@ -2652,11 +2652,11 @@
       return trades.flatMap(t => {
         const timeEntry = t.openDate || t.date;
         const markers = [];
-        markers.push({ time: timeEntry, position: 'belowBar', color: t.dir === 'Long' ? '#2ecc71' : '#e74c3c', shape: t.dir === 'Long' ? 'arrowUp' : 'arrowDown', text: `${t.dir[0]} entry` });
+        markers.push({ time: timeEntry, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: '+' });
         if (t.exit) {
-          markers.push({ time: t.date, position: 'aboveBar', color: t.dir === 'Long' ? '#2ecc71' : '#e74c3c', shape: t.dir === 'Long' ? 'arrowDown' : 'arrowUp', text: `${t.dir[0]} exit` });
+          markers.push({ time: t.date, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: '×' });
         } else {
-          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', text: 'Open' });
+          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 1, text: '○' });
         }
         return markers;
       });
