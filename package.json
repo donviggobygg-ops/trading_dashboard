@@ -15,6 +15,6 @@
   },
   "dependencies": {
     "chart.js": "^4.5.0",
-    "lightweight-charts": "https://pkg.pr.new/lightweight-charts@master"
+    "lightweight-charts": "^5.0.0"
   }
 }
