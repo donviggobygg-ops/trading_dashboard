@@ -1106,6 +1106,7 @@
       <button onclick="showPage('daily',this)">✏️ Daily journal</button>
       <button onclick="showPage('weekly',this)">📅 Weekly plan</button>
       <button onclick="showPage('backlog',this)">🖼 Screenshot backlog</button>
+      <button onclick="showPage('chart',this)">📈 Trading Chart</button>
       <button onclick="showPage('log',this)">≡ Trade log</button>
       <button onclick="showPage('deposits',this)">$ Deposits</button>
     </div>
@@ -1246,53 +1247,54 @@
       </div>
       <div id="openPositionsContent" style="min-height:180px;color:var(--text3)">Refresh to load open positions.</div>
     </div>
-    <div class="chart-container" style="grid-column:1/-1">
-      <div class="chart-header"><h3>Market data</h3></div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-        Live quotes &amp; 5-min chart data via <strong>Massive.com</strong>.
-        <span id="massiveWsStatus" style="margin-left:10px;font-size:11px;color:var(--text3)">WebSocket: disconnected</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: TRADING CHART                                                        -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div id="page-chart" class="page main-content">
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">
+      <!-- Symbol loader -->
+      <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:200px">
+        <input id="chartSymbol" placeholder="AAPL"
+          style="width:130px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none"
+          onkeyup="if(event.key==='Enter')loadSymbolChart()">
+        <button class="btn sm primary" onclick="loadSymbolChart()">Load chart</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
-        <div class="field" style="flex:1;min-width:220px">
-          <label>Massive.com API key <span style="font-size:10px;color:var(--text3)">(hardcoded — override here if needed)</span></label>
-          <input id="massiveApiKey" placeholder="Leave blank to use default key" type="password" autocomplete="off">
-        </div>
-        <button class="btn sm primary" onclick="saveMassiveKey()" style="margin-bottom:2px">Save &amp; reconnect</button>
-        <span id="massiveKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-        <div class="field" style="flex:1;min-width:220px">
-          <label>FinancialData.net API key <span style="font-size:10px;color:var(--text3)">(daily charts, optional fallback)</span></label>
-          <input id="fdApiKey" placeholder="Paste key from financialdata.net">
-        </div>
-        <button class="btn sm" onclick="saveFdKey()" style="margin-bottom:2px">Save</button>
-        <span id="fdKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
-      </div>
-    </div>
-    <div class="chart-container" style="grid-column:1/-1">
-      <div class="chart-header" style="flex-wrap:wrap;gap:10px">
-        <div>
-          <h3>Market price chart</h3>
-          <div style="font-size:11px;color:var(--text3)">TradingView lightweight candlestick chart with trade markers.
+      <!-- Market data settings (collapsible) -->
+      <details style="flex:1;min-width:260px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--text2);user-select:none">
+          Market data settings &nbsp;<span style="font-size:10px;color:var(--text3)">Massive.com &amp; FinancialData.net</span>
+          <span id="massiveWsStatus" style="margin-left:10px;font-size:11px;color:var(--text3)">WebSocket: disconnected</span>
+        </summary>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <div class="field" style="flex:1;min-width:220px">
+              <label>Massive.com API key <span style="font-size:10px;color:var(--text3)">(hardcoded — override if needed)</span></label>
+              <input id="massiveApiKey" placeholder="Leave blank to use default key" type="password" autocomplete="off">
+            </div>
+            <button class="btn sm primary" onclick="saveMassiveKey()" style="margin-bottom:2px">Save &amp; reconnect</button>
+            <span id="massiveKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <div class="field" style="flex:1;min-width:220px">
+              <label>FinancialData.net API key <span style="font-size:10px;color:var(--text3)">(daily chart history)</span></label>
+              <input id="fdApiKey" placeholder="Paste key from financialdata.net">
+            </div>
+            <button class="btn sm" onclick="saveFdKey()" style="margin-bottom:2px">Save</button>
+            <span id="fdKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="chartSymbol" placeholder="AAPL"
-            style="width:130px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none"
-            onkeyup="if(event.key==='Enter')loadSymbolChart()">
-          <button class="btn sm primary" onclick="loadSymbolChart()">Load chart</button>
-        </div>
-      </div>
-      <div id="chartWrapper"
-        style="height:calc(100vh - 180px);min-height:500px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg);">
-      </div>
-      <div id="chartStatus" style="margin-top:10px;font-size:12px;color:var(--text3)">Enter a ticker symbol and click
-        Load chart to fetch price history.</div>
+      </details>
+    </div>
+    <div id="chartStatus" style="margin-bottom:8px;font-size:12px;color:var(--text3)">Enter a ticker symbol and press Enter or click Load chart.</div>
+    <div id="chartWrapper"
+      style="height:calc(100vh - 140px);min-height:500px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg);">
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- PAGE: DAILY JOURNAL                                                       -->
+  <!-- PAGE: DAILY JOURNAL                                                        -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div id="page-daily" class="page main-content">
     <div class="g2" style="margin-bottom:12px">
@@ -1792,6 +1794,7 @@
       document.getElementById('page-' + p).classList.add('active');
       if (btn) btn.classList.add('active-tab-btn');
       if (p === 'dashboard') setTimeout(renderDash, 0);
+      if (p === 'chart') { loadFdKey(); loadMassiveKey(); setTimeout(() => { if (tvLoadedSymbol) loadSymbolChart(tvLoadedSymbol); }, 50); }
       if (p === 'log') renderLog();
       if (p === 'deposits') renderDeposits();
       if (p === 'weekly') renderWeeks();
