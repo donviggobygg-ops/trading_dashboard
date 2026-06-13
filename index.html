@@ -2859,23 +2859,7 @@
           })));
         }
 
-        const LS = LightweightCharts.LineStyle ?? {};
-        const Dashed = LS.Dashed ?? 2;
         const legends = [];
-
-        if (t.entry) {
-          cs.createPriceLine({ price: t.entry, color: '#f5c842', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `Entry $${t.entry.toFixed(2)}` });
-          legends.push(`<span style="color:#f5c842">━</span> Entry $${t.entry.toFixed(2)}`);
-        }
-        if (t.exit) {
-          const ec = t.pnl >= 0 ? '#2ecc71' : '#e74c3c';
-          cs.createPriceLine({ price: t.exit, color: ec, lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `Exit $${t.exit.toFixed(2)}` });
-          legends.push(`<span style="color:${ec}">━</span> Exit $${t.exit.toFixed(2)}`);
-        }
-        if (t.stopLoss && t.pnl > 0) {
-          cs.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
-          legends.push(`<span style="color:#e74c3c">━</span> Stop Loss $${t.stopLoss.toFixed(2)}`);
-        }
 
         // Place markers on the specific candle — use exact fill time when available (RoboMarkets stores openDateTime/closeDateTime),
         // otherwise fall back to finding the candle whose [low, high] range contains the fill price.
