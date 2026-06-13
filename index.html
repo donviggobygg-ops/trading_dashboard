@@ -588,7 +588,7 @@
     }
 
     .cal-day {
-      min-height: 72px;
+      min-height: 88px;
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: var(--r);
@@ -630,12 +630,12 @@
     }
 
     .cal-day .day-pnl {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700
     }
 
     .cal-day .day-trades {
-      font-size: 14px;
+      font-size: 11px;
       color: var(--text3)
     }
 
@@ -1122,10 +1122,7 @@
   <!-- ══ ACCOUNT FILTER BAR ══════════════════════════════════════════════════════ -->
   <div id="acct-filter-bar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap">
     <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">View account:</span>
-    <button class="btn sm active-tab-btn" id="af-all" onclick="setAccountFilter('')">All</button>
-    <button class="btn sm" id="af-day" onclick="setAccountFilter('Day trading')">Day trading</button>
-    <button class="btn sm" id="af-swing" onclick="setAccountFilter('Swing trading')">Swing trading</button>
-    <button class="btn sm" id="af-prop" onclick="setAccountFilter('Prop firm trading')">Prop firm</button>
+    <div id="af-buttons" style="display:contents"></div>
     <span style="font-size:11px;color:var(--text3);margin-left:8px" id="acct-filter-label">Showing: All accounts</span>
   </div>
 
@@ -1202,6 +1199,18 @@
       </div>
       <div class="chart-container">
         <div class="chart-header">
+          <h3>Trading P&amp;L growth <span style="font-size:10px;font-weight:400;color:var(--text3)">excl. deposits</span></h3>
+        </div>
+        <div style="position:relative;height:200px"><canvas id="cGrowth"></canvas></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3>Cumulative daily P&amp;L <span style="font-size:10px;font-weight:400;color:var(--text3)">running total per day</span></h3>
+        </div>
+        <div style="position:relative;height:200px"><canvas id="cAggPnl"></canvas></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-header">
           <h3>Net daily P&L</h3>
         </div>
         <div style="position:relative;height:200px"><canvas id="cDaily"></canvas></div>
@@ -1238,22 +1247,27 @@
       <div id="openPositionsContent" style="min-height:180px;color:var(--text3)">Refresh to load open positions.</div>
     </div>
     <div class="chart-container" style="grid-column:1/-1">
-      <div class="chart-header">
-        <h3>Market data provider</h3>
+      <div class="chart-header"><h3>Market data</h3></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Live quotes &amp; 5-min chart data via <strong>Massive.com</strong>.
+        <span id="massiveWsStatus" style="margin-left:10px;font-size:11px;color:var(--text3)">WebSocket: disconnected</span>
       </div>
-      <div class="g3">
-        <div class="field"><label>Provider</label><select id="marketProvider">
-            <option value="financialdata">FinancialData.net</option>
-          </select></div>
-        <div class="field"><label>API key</label><input id="marketApiKey" placeholder="financialdata.net API key"></div>
-        <div class="field"><label>Custom endpoint</label><input id="marketBaseUrl" placeholder="Optional URL"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+        <div class="field" style="flex:1;min-width:220px">
+          <label>Massive.com API key <span style="font-size:10px;color:var(--text3)">(hardcoded — override here if needed)</span></label>
+          <input id="massiveApiKey" placeholder="Leave blank to use default key" type="password" autocomplete="off">
+        </div>
+        <button class="btn sm primary" onclick="saveMassiveKey()" style="margin-bottom:2px">Save &amp; reconnect</button>
+        <span id="massiveKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-        <button class="btn sm primary" onclick="saveMarketConfig()">Save</button>
-        <span id="marketConfigMsg" style="display:none;color:var(--green)">Saved</span>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:220px">
+          <label>FinancialData.net API key <span style="font-size:10px;color:var(--text3)">(daily charts, optional fallback)</span></label>
+          <input id="fdApiKey" placeholder="Paste key from financialdata.net">
+        </div>
+        <button class="btn sm" onclick="saveFdKey()" style="margin-bottom:2px">Save</button>
+        <span id="fdKeySaved" style="display:none;font-size:11px;color:var(--green);margin-bottom:6px">Saved ✓</span>
       </div>
-      <div style="margin-top:8px;font-size:11px;color:var(--text3)">Market data is used to refresh open position values
-        and chart markers.</div>
     </div>
     <div class="chart-container" style="grid-column:1/-1">
       <div class="chart-header" style="flex-wrap:wrap;gap:10px">
@@ -1569,6 +1583,55 @@
       <input type="file" id="fileIn" accept=".csv" style="display:none" onchange="handleFile(event)">
       <div id="csvStatus"></div>
     </div>
+    <!-- RoboMarkets API import -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">RoboMarkets — live API import</div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field">
+          <label>Bearer API token</label>
+          <input id="roboToken" type="password" placeholder="Paste your StocksTrader Bearer token" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Account ID <span style="font-size:10px;color:var(--text3)">(e.g. 93183298 — or leave blank to auto-fetch list)</span></label>
+          <input id="roboAcctManual" placeholder="Enter account ID directly">
+        </div>
+      </div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field" style="display:flex;gap:8px;align-items:flex-end">
+          <div style="flex:1"><label>From date</label><input type="date" id="roboFrom"></div>
+          <div style="flex:1"><label>To date</label><input type="date" id="roboTo"></div>
+        </div>
+        <div class="field">
+          <label>Account <span style="font-size:10px;color:var(--text3)">(auto-populated on connect)</span></label>
+          <select id="roboAcct"><option value="">— connect first —</option></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn sm primary" onclick="roboConnect()">Connect</button>
+        <button class="btn sm" id="btnRoboImport" disabled onclick="roboImportDeals()">Import trade history</button>
+        <button class="btn sm" id="btnRoboPos" disabled onclick="roboSyncPositions()">Sync open positions</button>
+      </div>
+      <div id="roboMsg" style="margin-top:10px"></div>
+    </div>
+
+    <!-- ── Backup & Restore ─────────────────────────────────────────────────── -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Backup &amp; Restore</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
+        All your data (trades, deposits, daily journal entries, weekly plans, screenshots) is stored in your browser's localStorage.
+        Download a backup file regularly so you don't lose anything if the browser clears its storage.
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn primary" onclick="downloadBackup()">⬇ Download full backup</button>
+        <button class="btn sm" onclick="document.getElementById('restoreFileIn').click()">⬆ Restore from backup</button>
+        <input type="file" id="restoreFileIn" accept=".json" style="display:none" onchange="restoreBackup(event)">
+        <span id="backupMsg" style="font-size:12px;display:none"></span>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3)">
+        Backup includes: <strong>trades</strong> · <strong>deposits</strong> · <strong>daily journal entries + screenshots</strong> · <strong>weekly plans + images</strong> · <strong>screenshot backlog</strong>
+      </div>
+    </div>
+
     <div id="csvPreviewCard" style="display:none" class="card">
       <div
         style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1611,6 +1674,17 @@
     </div>
   </div>
 
+  <!-- ══ TRADE CHART MODAL ══════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="tradeChartModal" onclick="if(event.target===this)closeTradeChartModal()">
+    <div class="modal-box" style="max-width:920px;width:96vw;padding:18px">
+      <button class="modal-close" onclick="closeTradeChartModal()">×</button>
+      <div id="tradeChartTitle" style="font-weight:600;font-size:14px;margin-bottom:8px"></div>
+      <div id="tradeChartLegend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin-bottom:10px;min-height:16px"></div>
+      <div id="tradeChartStatus" style="color:var(--text2);font-size:12px;padding:20px 0;text-align:center"></div>
+      <div id="tradeChartWrapper" style="height:420px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;display:none"></div>
+    </div>
+  </div>
+
   <script>
     /* ══════════════════════════════════════════════════════════════════════════
        STATE
@@ -1618,7 +1692,13 @@
     let S = { trades: [], deposits: [], entries: {}, weekPlans: [], calM: new Date().getMonth(), calY: new Date().getFullYear() };
     let activeAccountFilter = '';
     let pendingJImgs = [], pendingWImgs = [], pendingTImgs = [], curEmo = '', pendingTrades = [], csvBatch = null;
-    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvLoadedSymbol = '';
+    const MASSIVE_API_KEY = 'WKkFFV7rGs2_9lBNEuYAtxZMSEjsdN3r';
+    // On GitHub Pages there is no dev server proxy — use direct API URLs instead
+    const ON_GH_PAGES = location.hostname.includes('github.io') || location.hostname.includes('github.com');
+    const MASSIVE_BASE = ON_GH_PAGES ? 'https://api.massive.com' : '/massiveapi';
+    const ROBO_BASE    = ON_GH_PAGES ? 'https://api.stockstrader.com' : '/rbapi';
+    const FD_BASE      = ON_GH_PAGES ? 'https://financialdata.net' : '/fdapi';
+    let criteriaItems = [], chartInst = {}, tvChart = null, tvCandleSeries = null, tvLoadedSymbol = '', tradeChartInstance = null;
 
     // Default trade criteria checklist
     const DEFAULT_CRITERIA = [
@@ -1637,12 +1717,66 @@
     function loadCriteria() { try { let c = localStorage.getItem('tj7_criteria'); if (c) criteriaItems = JSON.parse(c); } catch (e) { } }
     function saveCriteria() { try { localStorage.setItem('tj7_criteria', JSON.stringify(criteriaItems)); } catch (e) { } }
 
+    function downloadBackup() {
+      const backup = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        state: S,
+        criteria: criteriaItems,
+        fdKey: (function(){ try { return localStorage.getItem('tj7_fdkey') || ''; } catch(e){ return ''; } })()
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const d = new Date().toISOString().slice(0, 10);
+      a.download = `trading-dashboard-backup-${d}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      const msg = document.getElementById('backupMsg');
+      if (msg) { msg.textContent = 'Backup downloaded!'; msg.style.color = 'var(--green)'; msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2500); }
+    }
+
+    function restoreBackup(ev) {
+      const file = ev.target.files[0]; ev.target.value = '';
+      if (!file) return;
+      const msg = document.getElementById('backupMsg');
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const backup = JSON.parse(e.target.result);
+          if (!backup.state) throw new Error('Invalid backup file — no state found.');
+          const tradeCount = (backup.state.trades || []).length;
+          const entryCount = Object.keys(backup.state.entries || {}).length;
+          const weekCount = (backup.state.weekPlans || []).length;
+          if (!confirm(`Restore backup from ${backup.exportedAt?.slice(0,10) || 'unknown date'}?\n\nThis contains:\n• ${tradeCount} trade(s)\n• ${entryCount} daily journal entry/entries\n• ${weekCount} weekly plan(s)\n\nYour CURRENT data will be replaced. This cannot be undone.`)) return;
+          S = { ...S, ...backup.state };
+          if (backup.criteria) criteriaItems = backup.criteria;
+          if (backup.fdKey) { try { localStorage.setItem('tj7_fdkey', backup.fdKey); } catch(e){} loadFdKey(); }
+          saveS(); saveCriteria();
+          updateStatsCards(); renderCal(); renderDeposits(); renderLog(); renderWeeks(); renderBacklog(); renderRecentEntries();
+          if (msg) { msg.textContent = `Restored: ${tradeCount} trades, ${entryCount} journal entries, ${weekCount} weekly plans.`; msg.style.color = 'var(--green)'; msg.style.display = 'inline'; }
+        } catch(err) {
+          if (msg) { msg.textContent = 'Restore failed: ' + err.message; msg.style.color = 'var(--red)'; msg.style.display = 'inline'; }
+        }
+      };
+      reader.readAsText(file);
+    }
+
     /* ══ ACCOUNT FILTER ═══════════════════════════════════════════════════════════ */
+    function renderAccountFilterBar() {
+      const container = document.getElementById('af-buttons');
+      if (!container) return;
+      const accounts = [...new Set(S.trades.map(t => t.account).filter(Boolean))].sort();
+      let html = `<button class="btn sm ${!activeAccountFilter ? 'active-tab-btn' : ''}" onclick="setAccountFilter('')">All</button>`;
+      accounts.forEach(a => {
+        const active = activeAccountFilter === a ? 'active-tab-btn' : '';
+        html += `<button class="btn sm ${active}" data-acct="${a.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="setAccountFilter(this.dataset.acct)">${a}</button>`;
+      });
+      container.innerHTML = html;
+    }
     function setAccountFilter(acct) {
       activeAccountFilter = acct;
-      document.querySelectorAll('#acct-filter-bar .btn').forEach(b => b.classList.remove('active-tab-btn'));
-      const id = acct === '' ? 'af-all' : acct === 'Day trading' ? 'af-day' : acct === 'Swing trading' ? 'af-swing' : 'af-prop';
-      const el = document.getElementById(id); if (el) el.classList.add('active-tab-btn');
+      renderAccountFilterBar();
       document.getElementById('acct-filter-label').textContent = 'Showing: ' + (acct || 'All accounts');
       updateStatsCards(); renderCal(); if (document.getElementById('page-dashboard').classList.contains('active')) renderDash();
     }
@@ -1656,7 +1790,7 @@
       document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active-tab-btn'));
       document.getElementById('page-' + p).classList.add('active');
       if (btn) btn.classList.add('active-tab-btn');
-      if (p === 'dashboard') renderDash();
+      if (p === 'dashboard') setTimeout(renderDash, 0);
       if (p === 'log') renderLog();
       if (p === 'deposits') renderDeposits();
       if (p === 'weekly') renderWeeks();
@@ -1703,6 +1837,7 @@
 
     /* ══ STATS CARDS UPDATE ════════════════════════════════════════════════════ */
     function updateStatsCards() {
+      renderAccountFilterBar();
       let T = filteredTrades(), dep = totalDeposited(), tot = T.reduce((s,t)=>s+t.pnl,0), eq = currentEquity();
       let wins = T.filter(t => t.pnl > 0), losses = T.filter(t => t.pnl < 0);
       let wr = T.length ? Math.round(wins.length / T.length * 100) : 0;
@@ -1747,10 +1882,14 @@
       }
       return +trade.dollarRisk || 0;
     }
+    function equityAtTrade(trade) {
+      // Equity just before this trade's result: reverse out this trade's PnL from current equity
+      return currentEquity() - (+trade.pnl || 0);
+    }
     function tradeRiskPct(trade) {
       const risk = computeTradeRisk(trade);
-      const eq = currentEquity();
-      return risk && eq ? +(risk / eq * 100).toFixed(2) : 0;
+      const eq = equityAtTrade(trade);
+      return risk && eq > 0 ? +(risk / eq * 100).toFixed(2) : 0;
     }
     function calcRiskPct() {
       const entry = parseFloat(document.getElementById('tEntry').value) || 0;
@@ -1762,13 +1901,19 @@
       }
       const eq = currentEquity();
       const disp = document.getElementById('riskDisplay');
-      if (dollarRisk > 0 && eq > 0) {
+      if (dollarRisk > 0) {
         disp.style.display = 'flex';
-        const pct = (dollarRisk / eq * 100);
         const badge = document.getElementById('riskPctBadge');
-        badge.textContent = pct.toFixed(2) + '%';
-        badge.className = 'risk-pct-badge ' + (pct <= 1 ? 'low' : pct <= 2 ? 'mid' : '');
-        document.getElementById('riskEquityVal').textContent = '$' + eq.toFixed(2);
+        if (eq > 0) {
+          const pct = (dollarRisk / eq * 100);
+          badge.textContent = pct.toFixed(2) + '%';
+          badge.className = 'risk-pct-badge ' + (pct <= 1 ? 'low' : pct <= 2 ? 'mid' : '');
+          document.getElementById('riskEquityVal').textContent = '$' + eq.toFixed(2);
+        } else {
+          badge.textContent = '$' + dollarRisk.toFixed(2) + ' at risk';
+          badge.className = 'risk-pct-badge';
+          document.getElementById('riskEquityVal').textContent = '(add a deposit to see %)';
+        }
       } else {
         disp.style.display = 'none';
       }
@@ -1871,10 +2016,10 @@
       let dayPnl = all.reduce((s, t) => s + t.pnl, 0);
       el.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px"><span style="color:var(--text3)">${all.length} trade(s)</span><span class="${dayPnl >= 0 ? 'pos' : 'neg'}" style="font-weight:700">${dayPnl >= 0 ? '+' : ''}$${dayPnl.toFixed(2)}</span></div>` +
         all.map(t => {
-          let risk = computeTradeRisk(t);
-          let riskPct = tradeRiskPct(t);
+          let risk = t.pnl > 0 ? computeTradeRisk(t) : 0;
+          let riskPct = risk ? tradeRiskPct(t) : 0;
           let metCount = t.criteria ? (t.criteria.filter(c => c.checked).length + '/' + t.criteria.length + ' criteria') : null;
-          return `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="selectTradeSymbol(${JSON.stringify(t.sym)})">
+          return `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" data-sym="${t.sym}" onclick="selectTradeSymbol(this.dataset.sym)">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><span class="badge ${t.dir === 'Long' ? 'long' : 'short'}">${t.dir}</span> <strong style="margin-left:6px">${t.sym}</strong><span class="badge" style="margin-left:6px;background:rgba(59,130,246,.12);color:var(--blue);border-color:rgba(59,130,246,.2)">${t.account || 'Day trading'}</span>${t.setup ? ` <span style="color:var(--text3);font-size:10px">(${t.setup})</span>` : ''}</div>
           <span class="${t.pnl >= 0 ? 'pos' : 'neg'}" style="font-weight:700">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>
@@ -1934,8 +2079,8 @@
       el.innerHTML = trades.map(t => {
         let criteriaChecked = t.criteria ? t.criteria.filter(c => c.checked).length : 0;
         let criteriaTotal = t.criteria ? t.criteria.length : 0;
-        let risk = computeTradeRisk(t);
-        let riskPct = tradeRiskPct(t);
+        let risk = t.pnl > 0 ? computeTradeRisk(t) : 0;
+        let riskPct = risk ? tradeRiskPct(t) : 0;
         return `<div class="screenshot-entry">
       <div class="se-header">
         <div>
@@ -2049,8 +2194,8 @@
           dayContent = `
             <div class="day-pnl ${info.pnl>=0?'pos':'neg'}">${pnlFmt}</div>
             <div class="day-trades" style="color:var(--text3)">${info.count} trade${info.count!==1?'s':''}</div>
-            <div style="font-size:9px;color:var(--text3);margin-top:2px">WR: <span style="color:${wr>=50?'var(--green)':'var(--red)'};font-weight:600">${wr}%</span></div>
-            <div style="font-size:9px;color:var(--text3)">${(pnlPct>=0?'+':'')}${pnlPct.toFixed(1)}% eq${riskPct>0?' · R:'+riskPct.toFixed(1)+'%':''}</div>`;
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">WR: <span style="color:${wr>=50?'var(--green)':'var(--red)'};font-weight:600">${wr}%</span></div>
+            <div style="font-size:11px;color:var(--text3)">${(pnlPct>=0?'+':'')}${pnlPct.toFixed(1)}% eq${riskPct>0?' · R:'+riskPct.toFixed(1)+'%':''}</div>`;
         }
 
         // Weekly summary on Sunday
@@ -2077,7 +2222,7 @@
             let wGrossLAbs=Math.abs(wGrossL);
             let wRR=wGrossLAbs>0?(wGrossW/wGrossLAbs):wGrossW>0?Infinity:0;
             let col=wPnl>=0?'var(--green)':'var(--red)';
-            weekExtra=`<div style="margin-top:4px;padding-top:3px;border-top:1px solid rgba(255,255,255,.07);font-size:9px;color:var(--text3)">
+            weekExtra=`<div style="margin-top:4px;padding-top:3px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:var(--text3)">
               Wk: <span style="color:${col};font-weight:700">${wPnl>=0?'+':''}$${Math.abs(wPnl)<100?wPnl.toFixed(1):Math.round(wPnl)}</span>
               <span style="color:${col}">${wPct>=0?'+':''}${wPct.toFixed(1)}%</span>
               <span style="color:var(--text3)"> · ${wCount}T · WR:${wWR}% · R:R ${wRR===Infinity?'∞':wRR.toFixed(2)}</span>
@@ -2161,8 +2306,9 @@
       el.innerHTML = trades.map(t => {
         let idx = sortedAll.findIndex(x => x.id === t.id);
         let port = portfolioAtClose(idx), pct = port > 0 ? (t.pnl / port * 100) : 0;
-        let risk = computeTradeRisk(t);
-        let riskPct = risk && currentEquity() > 0 ? (risk / currentEquity() * 100).toFixed(2) : null;
+        let risk = t.pnl > 0 ? computeTradeRisk(t) : 0;  // only show risk on winning trades
+        let eqAt = equityAtTrade(t);
+        let riskPct = risk && eqAt > 0 ? (risk / eqAt * 100).toFixed(2) : null;
         return `<tr>
       <td class="dim">${t.date}</td>
       <td><strong>${t.sym}</strong></td>
@@ -2175,7 +2321,7 @@
       <td class="dim">${risk ? '$' + risk.toFixed(2) : '—'}</td>
       <td class="${riskPct > 2 ? 'neg' : riskPct > 1 ? '' : 'dim'}">${riskPct ? riskPct + '%' : '—'}</td>
       <td class="${pct >= 0 ? 'pos' : 'neg'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn sm" onclick="event.stopPropagation();selectTradeSymbol(${JSON.stringify(t.sym)})">Chart</button><button class="btn sm danger" onclick="event.stopPropagation();delTrade(${t.id})">✕</button></td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn sm" data-sym="${t.sym}" onclick="event.stopPropagation();selectTradeSymbol(this.dataset.sym)">Chart</button>${t.exit ? `<button class="btn sm" data-id="${t.id}" onclick="event.stopPropagation();showTradeChart(this.dataset.id)" title="5-minute trade chart">5m</button>` : ''}<button class="btn sm danger" onclick="event.stopPropagation();delTrade(${t.id})">✕</button></td>
     </tr>`;
       }).join('');
     }
@@ -2280,10 +2426,10 @@
 
     /* ══ DASHBOARD CHARTS ══════════════════════════════════════════════════════════ */
     function destroyChart(id) { if (chartInst[id]) { chartInst[id].destroy(); delete chartInst[id]; } }
-    const CHART_OPTS = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw } } }, scales: { x: { ticks: { color: '#666', font: { size: 10 }, maxRotation: 30, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(51,51,51,.4)' } }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(51,51,51,.4)' } } } };
+    const CHART_OPTS = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw } } }, scales: { x: { ticks: { color: '#666', font: { size: 10 }, maxRotation: 30, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(51,51,51,.4)' } }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(51,51,51,.4)' } } } };
     function renderDash() {
       let T = filteredTrades(), dep = totalDeposited(), eq = currentEquity();
-      if (!T.length) { ['cEquity','cDaily','cInstr','cWin','cPct'].forEach(id=>{destroyChart(id);}); return; }
+      if (!T.length) { ['cEquity','cGrowth','cAggPnl','cDaily','cInstr','cWin','cPct'].forEach(id=>{destroyChart(id);}); return; }
       let sorted = [...T].sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
       // Total equity timeline: deposits + pnl
       {
@@ -2298,6 +2444,19 @@
         let ce=document.getElementById('cEquity');
         if(ce) chartInst.cEquity=new Chart(ce,{type:'line',data:{labels:eqLbls,datasets:[{label:'Total Equity',data:eqData,borderColor:'#2ecc71',fill:true,backgroundColor:'rgba(46,204,113,.08)',tension:.3,pointRadius:0,borderWidth:2}]},options:{...CHART_OPTS,plugins:{...CHART_OPTS.plugins,tooltip:{callbacks:{label:ctx=>'$'+ctx.raw}}},scales:{...CHART_OPTS.scales,y:{...CHART_OPTS.scales.y,ticks:{...CHART_OPTS.scales.y.ticks,callback:v=>'$'+v}}}}});
       }
+      // Cumulative PnL growth (no deposits) — per-trade running sum
+      { let runPnl=0; const gLbls=[],gData=[];
+        sorted.forEach(t=>{ runPnl+=t.pnl; gLbls.push(t.date); gData.push(+(runPnl).toFixed(2)); });
+        destroyChart('cGrowth'); const cg=document.getElementById('cGrowth');
+        if(cg) chartInst.cGrowth=new Chart(cg,{type:'line',data:{labels:gLbls,datasets:[{label:'Cumulative P&L',data:gData,borderColor:'#3b82f6',fill:true,backgroundColor:'rgba(59,130,246,.08)',tension:.3,pointRadius:0,borderWidth:2}]},options:{...CHART_OPTS,plugins:{...CHART_OPTS.plugins,tooltip:{callbacks:{label:ctx=>'$'+ctx.raw}}},scales:{...CHART_OPTS.scales,y:{...CHART_OPTS.scales.y,ticks:{...CHART_OPTS.scales.y.ticks,callback:v=>'$'+v}}}}});
+      }
+      // Aggregate PnL to date — one data point per day (daily sum → cumulative line)
+      { const byDay={}; sorted.forEach(t=>{ byDay[t.date]=(byDay[t.date]||0)+t.pnl; });
+        const days=Object.keys(byDay).sort(); let run=0; const aLbls=[],aData=[];
+        days.forEach(d=>{ run+=byDay[d]; aLbls.push(d); aData.push(+run.toFixed(2)); });
+        destroyChart('cAggPnl'); const ca=document.getElementById('cAggPnl');
+        if(ca) chartInst.cAggPnl=new Chart(ca,{type:'line',data:{labels:aLbls,datasets:[{label:'Aggregate P&L',data:aData,borderColor:'#a78bfa',fill:true,backgroundColor:'rgba(167,139,250,.08)',tension:.4,pointRadius:0,borderWidth:2}]},options:{...CHART_OPTS,plugins:{...CHART_OPTS.plugins,tooltip:{callbacks:{label:ctx=>'$'+ctx.raw}}},scales:{...CHART_OPTS.scales,y:{...CHART_OPTS.scales.y,ticks:{...CHART_OPTS.scales.y.ticks,callback:v=>'$'+v}}}}});
+      }
       let bd = {}; T.forEach(t => { bd[t.date] = (bd[t.date] || 0) + t.pnl; }); let dd = Object.keys(bd).sort(), ddv = dd.map(d => +bd[d].toFixed(2));
       destroyChart('cDaily'); let cd = document.getElementById('cDaily'); if (cd) chartInst.cDaily = new Chart(cd, { type: 'bar', data: { labels: dd, datasets: [{ data: ddv, backgroundColor: ddv.map(v => v >= 0 ? 'rgba(46,204,113,.7)' : 'rgba(231,76,60,.7)'), borderRadius: 3, borderWidth: 0 }] }, options: { ...CHART_OPTS, scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, ticks: { ...CHART_OPTS.scales.y.ticks, callback: v => '$' + v } } } } });
       let im = {}; T.forEach(t => { im[t.sym] = (im[t.sym] || 0) + t.pnl; }); let instrs = Object.entries(im).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 14);
@@ -2311,36 +2470,114 @@
 
     function setChartStatus(text) { const el = document.getElementById('chartStatus'); if (el) el.textContent = text; }
 
-    function getMarketConfig() {
-      if (!S.marketConfig) S.marketConfig = { provider: 'financialdata', apiKey: '6cddc0834c6253cb933afff572dffa6d', baseUrl: '' };
-      return S.marketConfig;
+    /* ══ MASSIVE.COM API KEY ════════════════════════════════════════════════════ */
+    // Key is hardcoded as MASSIVE_API_KEY. The UI field allows overriding it if needed.
+    function getMassiveKey() {
+      const el = document.getElementById('massiveApiKey');
+      if (el?.value?.trim()) return el.value.trim();
+      try { return localStorage.getItem('tj7_massive') || MASSIVE_API_KEY; } catch(e) { return MASSIVE_API_KEY; }
     }
-    function saveMarketConfig() {
-      S.marketConfig = {
-        provider: document.getElementById('marketProvider')?.value || 'financialdata',
-        apiKey: document.getElementById('marketApiKey')?.value.trim() || '6cddc0834c6253cb933afff572dffa6d',
-        baseUrl: document.getElementById('marketBaseUrl')?.value.trim() || ''
-      };
-      saveS();
-      const msg = document.getElementById('marketConfigMsg'); if (msg) { msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500); }
+    function saveMassiveKey() {
+      const k = (document.getElementById('massiveApiKey')?.value || '').trim();
+      try { if (k) localStorage.setItem('tj7_massive', k); else localStorage.removeItem('tj7_massive'); } catch(e) {}
+      const msg = document.getElementById('massiveKeySaved');
+      if (msg) { msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500); }
+      connectMassiveWS();
     }
-    function loadMarketConfig() {
-      const cfg = getMarketConfig();
-      if (document.getElementById('marketProvider')) document.getElementById('marketProvider').value = cfg.provider || 'financialdata';
-      if (document.getElementById('marketApiKey')) document.getElementById('marketApiKey').value = cfg.apiKey || '6cddc0834c6253cb933afff572dffa6d';
-      if (document.getElementById('marketBaseUrl')) document.getElementById('marketBaseUrl').value = cfg.baseUrl || '';
+    function loadMassiveKey() {
+      try {
+        const k = localStorage.getItem('tj7_massive') || '';
+        const el = document.getElementById('massiveApiKey');
+        if (el && k && k !== MASSIVE_API_KEY) el.value = k;
+      } catch(e) {}
     }
+
+    /* ══ FINANCIAL DATA (daily charts, fallback) ═════════════════════════════ */
+    function saveFdKey() {
+      const k = (document.getElementById('fdApiKey')?.value || '').trim();
+      try { localStorage.setItem('tj7_fdkey', k); } catch(e) {}
+      const msg = document.getElementById('fdKeySaved');
+      if (msg) { msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500); }
+    }
+    function getFdKey() {
+      const el = document.getElementById('fdApiKey');
+      if (el?.value?.trim()) return el.value.trim();
+      try { return localStorage.getItem('tj7_fdkey') || ''; } catch(e) { return ''; }
+    }
+    function loadFdKey() {
+      try {
+        const k = localStorage.getItem('tj7_fdkey') || '';
+        const el = document.getElementById('fdApiKey'); if (el && k) el.value = k;
+      } catch(e) {}
+    }
+
+    async function fetchSymbolHistory(symbol) {
+      const sym = normalizeSymbols(symbol);
+      if (!sym) throw new Error('Ticker is required');
+      const key = getFdKey();
+      if (!key) throw new Error('Enter your FinancialData.net API key in Market data settings on the Dashboard.');
+      const url = `${FD_BASE}/api/v1/stock-prices?identifier=${encodeURIComponent(sym)}&key=${key}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`FinancialData.net error ${res.status} — check your API key`);
+      let json; try { json = await res.json(); } catch(e) { throw new Error('API returned non-JSON. Restart dev server (npm run dev) then retry.'); }
+      const arr = Array.isArray(json) ? json : (json?.data ?? json?.prices ?? json?.candles ?? []);
+      if (!arr.length) throw new Error('No price data for ' + sym + '. Check symbol spelling and that your plan covers this instrument.');
+      const data = arr
+        .filter(r => r.date && r.open != null && r.high != null && r.low != null && r.close != null)
+        .map(r => ({ time: r.date.slice(0, 10), open: +r.open, high: +r.high, low: +r.low, close: +r.close }))
+        .sort((a, b) => a.time.localeCompare(b.time));
+      if (!data.length) throw new Error('No usable candles for ' + sym);
+      return data;
+    }
+
+    // Fetch 5-minute OHLCV candles from Massive.com REST API.
+    // Endpoint: GET /v2/aggs/ticker/{sym}/range/5/minute/{from}/{to}
+    // Returns array of { time: unixSeconds, open, high, low, close } sorted ascending.
+    async function fetchIntradayCandles(symbol, fromDate, toDate) {
+      const sym = normalizeSymbols(symbol);
+      const key = getMassiveKey();
+      if (!key) throw new Error('Enter your Massive.com API key in Dashboard > Market data settings, then click "Save & connect".');
+      const from = fromDate || toDate;
+      const to   = toDate   || fromDate;
+      if (!from) throw new Error('Date range required for 5-minute chart.');
+      const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(sym)}/range/5/minute/${from}/${to}?apiKey=${key}&limit=1000&sort=asc&adjusted=true`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Massive.com error ${res.status} — check your API key.`);
+      let json;
+      try { json = await res.json(); } catch(e) { throw new Error('Non-JSON response from Massive.com. Check that the dev server is running (npm run dev).'); }
+      if (json.status === 'ERROR') throw new Error('Massive.com: ' + (json.error || json.message || 'unknown error'));
+      const arr = json.results || [];
+      if (!arr.length) throw new Error(`No 5-minute bars for ${sym} (${from} → ${to}). Market may have been closed, or check the symbol name.`);
+      return arr.map(r => ({
+        time:  Math.floor(r.t / 1000), // Massive returns Unix ms → convert to seconds
+        open:  r.o, high: r.h, low: r.l, close: r.c
+      })).sort((a, b) => a.time - b.time);
+    }
+
+    function roboAccountId() {
+      return (roboConfig.accountId || document.getElementById('roboAcctManual')?.value || document.getElementById('roboAcct')?.value || '').trim();
+    }
+    function roboBase() { return roboConfig._pathBase || '/api/v1/'; }
+
     async function fetchQuotes(symbols) {
       if (!symbols.length) return {};
-      const key = (getMarketConfig().apiKey || '').trim() || '6cddc0834c6253cb933afff572dffa6d';
+      const acctId = roboAccountId();
+      const base = roboBase();
+      if (!acctId || !roboConfig.token) throw new Error('Connect to RoboMarkets first in the Import tab');
       const uniq = [...new Set(symbols.map(normalizeSymbols).filter(Boolean))];
-      const url = `https://financialdata.net/api/v1/stock-quotes?identifiers=${encodeURIComponent(uniq.join(','))}&key=${key}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`financialdata.net quotes error ${res.status}`);
-      const json = await res.json();
-      return (Array.isArray(json) ? json : []).reduce((acc, item) => {
-        const s = normalizeSymbols(item.trading_symbol || item.symbol || '');
-        if (s) acc[s] = { price: +(item.price || item.last || 0), change: +(item.change_percent || item.change || 0) };
+      // Fetch quotes per-symbol in parallel: GET /api/v1/accounts/{id}/instruments/{ticker}/quote
+      const results = await Promise.allSettled(uniq.map(sym =>
+        roboFetch(base + 'accounts/' + acctId + '/instruments/' + encodeURIComponent(sym) + '/quote')
+          .then(raw => ({ sym, data: Array.isArray(raw) ? raw[0] : (raw?.data ?? raw) }))
+      ));
+      return results.reduce((acc, r) => {
+        if (r.status === 'fulfilled' && r.value?.data) {
+          const d = r.value.data;
+          acc[r.value.sym] = {
+            price: +(d.last_price ?? d.price ?? d.ask_price ?? 0),
+            change: 0
+          };
+        }
         return acc;
       }, {});
     }
@@ -2351,7 +2588,24 @@
       if (el) el.innerHTML = '<div class="sbox info">Loading market data...</div>';
       try {
         const symbols = [...new Set(openTrades.map(t => normalizeSymbols(t.sym)))];
-        const quotes = await fetchQuotes(symbols);
+
+        // Try Massive.com WebSocket live quotes first; subscribe any untracked symbols
+        let quotes = {};
+        const massiveAvailable = massiveWsReady && symbols.some(s => massiveLiveQuotes[s]);
+        if (massiveWsReady) massiveSubscribe(symbols); // no-op for already-subscribed
+        if (massiveAvailable) {
+          symbols.forEach(s => { if (massiveLiveQuotes[s]) quotes[s] = { price: massiveLiveQuotes[s] }; });
+          // Still try RoboMarkets for any symbols Massive hasn't seen yet
+          const missing = symbols.filter(s => !quotes[s]);
+          if (missing.length && roboConfig.token) {
+            try { const rb = await fetchQuotes(missing); Object.assign(quotes, rb); } catch(e) {}
+          }
+        } else {
+          // Fallback: RoboMarkets API
+          quotes = await fetchQuotes(symbols);
+        }
+
+        const src = massiveAvailable ? '<span style="font-size:10px;color:var(--green);margin-left:8px">● Massive.com live</span>' : '<span style="font-size:10px;color:var(--text3);margin-left:8px">RoboMarkets</span>';
         const rows = openTrades.map(t => {
           const q = quotes[normalizeSymbols(t.sym)] || {};
           const last = +q.price || 0;
@@ -2360,7 +2614,7 @@
           const riskPct = tradeRiskPct(t);
           return `<tr><td><strong>${t.sym}</strong></td><td>${t.dir}</td><td>${t.account || 'Day trading'}</td><td>${t.entry ? `$${t.entry.toFixed(2)}` : '—'}</td><td>${t.stopLoss ? `$${t.stopLoss.toFixed(2)}` : '—'}</td><td>${last ? `$${last.toFixed(2)}` : '—'}</td><td>${t.vol || '—'}</td><td class="${unrealized >= 0 ? 'pos' : 'neg'}">${unrealized >= 0 ? '+' : ''}$${unrealized.toFixed(2)}</td><td>${risk ? '$' + risk.toFixed(2) : '—'}</td><td>${riskPct ? riskPct + '%' : '—'}</td></tr>`;
         }).join('');
-        if (el) el.innerHTML = `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Symbol</th><th>Dir</th><th>Acct</th><th>Entry</th><th>SL</th><th>Last</th><th>Vol</th><th>Unrealized</th><th>$ Risk</th><th>% Equity</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        if (el) el.innerHTML = `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Symbol${src}</th><th>Dir</th><th>Acct</th><th>Entry</th><th>SL</th><th>Last</th><th>Vol</th><th>Unrealized</th><th>$ Risk</th><th>% Equity</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       } catch (err) { if (el) el.innerHTML = `<div class="sbox err">Unable to refresh open positions: ${err.message}</div>`; }
     }
 
@@ -2371,6 +2625,7 @@
       tvChart = null; tvCandleSeries = null;
       try {
         tvChart = LightweightCharts.createChart(container, {
+          autoSize: true,
           layout: { background: { color: '#111' }, textColor: '#ddd' },
           grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
           rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
@@ -2404,25 +2659,6 @@
       });
     }
 
-    async function fetchSymbolHistory(symbol) {
-      const sym = normalizeSymbols(symbol);
-      if (!sym) throw new Error('Ticker is required');
-      const key = (getMarketConfig().apiKey || '').trim();
-      if (!key) throw new Error('No API key set. Enter your financialdata.net API key in Market data provider settings on the Dashboard.');
-      // Try stock-prices endpoint
-      const url = `https://financialdata.net/api/v1/stock-prices?identifier=${encodeURIComponent(sym)}&key=${key}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`financialdata.net error ${res.status} — check your API key`);
-      const json = await res.json();
-      if (!Array.isArray(json) || !json.length) throw new Error('No price data for ' + sym + '. Check the symbol is correct and supported by financialdata.net');
-      const data = json
-        .filter(r => r.date && r.open != null && r.high != null && r.low != null && r.close != null)
-        .map(r => ({ time: r.date.slice(0, 10), open: +r.open, high: +r.high, low: +r.low, close: +r.close }))
-        .sort((a, b) => a.time.localeCompare(b.time));
-      if (!data.length) throw new Error('No usable candles for ' + sym);
-      return data;
-    }
-
     async function loadSymbolChart(symbol) {
       const symField = document.getElementById('chartSymbol');
       const sym = normalizeSymbols(symbol || (symField ? symField.value : ''));
@@ -2435,7 +2671,10 @@
         if (!data.length) throw new Error('No candle data returned');
         tvCandleSeries.setData(data);
         const markers = buildTradeMarkers(sym);
-        try { if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers); } catch(me) {}
+        try {
+          if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
+          else if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
+        } catch(me) {}
         tvLoadedSymbol = sym;
         tvChart.timeScale().fitContent();
         const tc = Math.floor(markers.length / 2);
@@ -2449,15 +2688,499 @@
       const sym = normalizeSymbols(tvLoadedSymbol);
       if (!sym || !tvCandleSeries) return;
       const markers = buildTradeMarkers(sym);
-      if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
+      try {
+        if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
+        else if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
+      } catch(me) {}
+    }
+
+    /* ══ TRADE 5-MINUTE CHART MODAL ══════════════════════════════════════════════ */
+    async function showTradeChart(tradeId) {
+      const t = S.trades.find(tr => String(tr.id) == String(tradeId));
+      if (!t) return;
+      const modal    = document.getElementById('tradeChartModal');
+      const titleEl  = document.getElementById('tradeChartTitle');
+      const legendEl = document.getElementById('tradeChartLegend');
+      const statusEl = document.getElementById('tradeChartStatus');
+      const wrapper  = document.getElementById('tradeChartWrapper');
+      modal.classList.add('show');
+
+      const winLoss = t.pnl > 0 ? 'pos' : t.pnl < 0 ? 'neg' : 'dim';
+      const pnlStr  = (t.pnl >= 0 ? '+' : '') + '$' + t.pnl.toFixed(2);
+      const dateStr = t.openDate && t.openDate !== t.date ? t.openDate + ' → ' + t.date : t.date;
+      titleEl.innerHTML = `<strong>${t.sym}</strong> &nbsp;<span class="badge ${t.dir==='Long'?'long':'short'}">${t.dir}</span>&nbsp; <span class="${winLoss}">${pnlStr}</span> &nbsp;<span style="font-size:11px;color:var(--text3)">${dateStr}</span>`;
+      legendEl.innerHTML = '';
+      statusEl.innerHTML = '<span style="color:var(--text2)">Loading 5-minute chart…</span>';
+      statusEl.style.display = 'block';
+      wrapper.style.display  = 'none';
+
+      if (tradeChartInstance) { try { tradeChartInstance.remove(); } catch(e) {} tradeChartInstance = null; }
+      wrapper.innerHTML = '';
+
+      try {
+        const fromDate = t.openDate || t.date;
+        const toDate   = t.exit ? t.date : new Date().toISOString().slice(0, 10);
+        const data = await fetchIntradayCandles(t.sym, fromDate, toDate);
+
+        statusEl.style.display = 'none';
+        wrapper.style.display  = 'block';
+
+        const chart = LightweightCharts.createChart(wrapper, {
+          autoSize: true,
+          layout: { background: { color: '#111' }, textColor: '#ccc' },
+          grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
+          rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
+          timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false }
+        });
+        tradeChartInstance = chart;
+
+        let cs;
+        if (LightweightCharts.CandlestickSeries) {
+          cs = chart.addSeries(LightweightCharts.CandlestickSeries, { upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
+        } else {
+          cs = chart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
+        }
+        cs.setData(data);
+
+        const LS = LightweightCharts.LineStyle ?? {};
+        const Dashed = LS.Dashed ?? 2;
+        const legends = [];
+
+        if (t.entry) {
+          cs.createPriceLine({ price: t.entry, color: '#f5c842', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `Entry $${t.entry.toFixed(2)}` });
+          legends.push(`<span style="color:#f5c842">━</span> Entry $${t.entry.toFixed(2)}`);
+        }
+        if (t.exit) {
+          const ec = t.pnl >= 0 ? '#2ecc71' : '#e74c3c';
+          cs.createPriceLine({ price: t.exit, color: ec, lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `Exit $${t.exit.toFixed(2)}` });
+          legends.push(`<span style="color:${ec}">━</span> Exit $${t.exit.toFixed(2)}`);
+        }
+        if (t.stopLoss && t.pnl > 0) {
+          cs.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
+          legends.push(`<span style="color:#e74c3c">━</span> Stop Loss $${t.stopLoss.toFixed(2)}`);
+        }
+
+        // Today marker — only if today falls within the chart's data range
+        const todayTs = Math.floor(Date.now() / 1000);
+        if (data.length && todayTs >= data[0].time && todayTs <= data[data.length - 1].time + 86400) {
+          const closest = data.reduce((b, c) => Math.abs(c.time - todayTs) < Math.abs(b.time - todayTs) ? c : b);
+          const tMarkers = [{ time: closest.time, position: 'aboveBar', color: '#3b82f6', shape: 'circle', text: 'Today' }];
+          try {
+            if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(cs, tMarkers);
+            else if (cs.setMarkers) cs.setMarkers(tMarkers);
+          } catch(e) {}
+          legends.push('<span style="color:#3b82f6">●</span> Today');
+        }
+
+        legendEl.innerHTML = legends.join('<span style="color:var(--border);margin:0 6px">|</span>');
+        chart.timeScale().fitContent();
+      } catch(err) {
+        statusEl.innerHTML = `<div class="sbox err">${err.message}</div>`;
+        statusEl.style.display = 'block';
+        wrapper.style.display  = 'none';
+      }
+    }
+
+    function closeTradeChartModal() {
+      document.getElementById('tradeChartModal').classList.remove('show');
+      if (tradeChartInstance) { try { tradeChartInstance.remove(); } catch(e) {} tradeChartInstance = null; }
+      document.getElementById('tradeChartWrapper').innerHTML = '';
+    }
+
+    /* ══ MASSIVE.COM WEBSOCKET (live quotes & real-time minute bars) ════════════ */
+    let massiveWS = null, massiveWsReady = false;
+    const massiveSubscriptions = new Set(); // channels subscribed (e.g. "AM.AAPL")
+    const massiveLiveQuotes    = {};        // { sym: lastPrice }
+    const massiveMinuteBars    = {};        // { sym: [{time,o,h,l,c}, ...] } — rolling ~390 bars
+
+    function setWsStatus(text, color) {
+      const el = document.getElementById('massiveWsStatus');
+      if (el) { el.textContent = 'WebSocket: ' + text; el.style.color = color || 'var(--text3)'; }
+    }
+
+    function connectMassiveWS() {
+      const key = getMassiveKey();
+      if (!key) return;
+      if (massiveWS && massiveWS.readyState < 2) { massiveWS.close(); }
+      setWsStatus('connecting…', 'var(--text2)');
+      try {
+        massiveWS = new WebSocket('wss://socket.massive.com/stocks');
+      } catch(e) { setWsStatus('failed: ' + e.message, 'var(--red)'); return; }
+
+      massiveWS.onopen = () => {
+        massiveWS.send(JSON.stringify({ action: 'auth', params: key }));
+      };
+
+      massiveWS.onmessage = ev => {
+        let msgs;
+        try { msgs = JSON.parse(ev.data); } catch(e) { return; }
+        if (!Array.isArray(msgs)) msgs = [msgs];
+        msgs.forEach(msg => {
+          if (msg.ev === 'status') {
+            if (msg.status === 'auth_success') {
+              massiveWsReady = true;
+              setWsStatus('connected ✓', 'var(--green)');
+              if (massiveSubscriptions.size > 0) {
+                massiveWS.send(JSON.stringify({ action: 'subscribe', params: [...massiveSubscriptions].join(',') }));
+              }
+            } else if (msg.status === 'auth_failed') {
+              setWsStatus('auth failed — check API key', 'var(--red)');
+            }
+          } else if (msg.ev === 'AM') {
+            // Aggregate minute bar
+            const sym = msg.sym;
+            if (!massiveMinuteBars[sym]) massiveMinuteBars[sym] = [];
+            const bar = { time: Math.floor(msg.s / 1000), open: msg.o, high: msg.h, low: msg.l, close: msg.c };
+            massiveMinuteBars[sym].push(bar);
+            if (massiveMinuteBars[sym].length > 500) massiveMinuteBars[sym].shift();
+            massiveLiveQuotes[sym] = msg.c;
+          } else if (msg.ev === 'Q') {
+            // Quote update — use mid price
+            const sym = msg.sym;
+            massiveLiveQuotes[sym] = msg.ap || msg.bp || 0;
+          } else if (msg.ev === 'T') {
+            // Trade — use last price
+            massiveLiveQuotes[msg.sym] = msg.p || 0;
+          }
+        });
+      };
+
+      massiveWS.onclose = () => {
+        massiveWsReady = false;
+        setWsStatus('disconnected — reconnecting…', 'var(--text3)');
+        setTimeout(connectMassiveWS, 6000);
+      };
+
+      massiveWS.onerror = () => {
+        setWsStatus('error', 'var(--red)');
+      };
+    }
+
+    function massiveSubscribe(symbols) {
+      const newSyms = symbols.map(s => normalizeSymbols(s)).filter(s => s && !massiveSubscriptions.has('AM.' + s));
+      if (!newSyms.length) return;
+      newSyms.forEach(s => { massiveSubscriptions.add('AM.' + s); massiveSubscriptions.add('Q.' + s); });
+      if (massiveWS && massiveWS.readyState === 1 && massiveWsReady) {
+        const params = newSyms.flatMap(s => ['AM.' + s, 'Q.' + s]).join(',');
+        massiveWS.send(JSON.stringify({ action: 'subscribe', params }));
+      }
+    }
+
+    /* ══ ROBOMARKETS / STOCKSTRADER API ══════════════════════════════════════════ */
+    let roboConfig = { token: '', accountId: '', baseUrl: '' };
+
+    function loadRoboConfig() {
+      try { const c = localStorage.getItem('tj7_robo'); if (c) roboConfig = { ...roboConfig, ...JSON.parse(c) }; } catch(e) {}
+      if (document.getElementById('roboToken') && roboConfig.token) document.getElementById('roboToken').value = roboConfig.token;
+      if (document.getElementById('roboAcctManual') && roboConfig.accountId) document.getElementById('roboAcctManual').value = roboConfig.accountId;
+      const now = new Date();
+      const df = document.getElementById('roboFrom'), dt = document.getElementById('roboTo');
+      if (df && !df.value) { const d = new Date(now); d.setDate(d.getDate() - 90); df.value = d.toISOString().slice(0,10); }
+      if (dt && !dt.value) dt.value = now.toISOString().slice(0,10);
+    }
+
+    function saveRoboConfig() {
+      roboConfig.token     = (document.getElementById('roboToken')?.value || '').trim();
+      roboConfig.accountId = (document.getElementById('roboAcctManual')?.value || document.getElementById('roboAcct')?.value || '').trim();
+      try { localStorage.setItem('tj7_robo', JSON.stringify(roboConfig)); } catch(e) {}
+    }
+
+    function roboUnwrap(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw?.code === 'ok' || raw?.status === 'ok' || raw?.success === true) {
+        const d = raw.data ?? raw.result ?? raw.items;
+        if (Array.isArray(d)) return d;
+        if (d && typeof d === 'object') return [d];
+      }
+      return raw?.accounts || raw?.deals || raw?.orders || raw?.positions || raw?.data || raw?.items || raw?.records || [];
+    }
+
+    function roboMsg(html) { const el = document.getElementById('roboMsg'); if (el) el.innerHTML = html; }
+
+    async function roboFetch(path) {
+      const tok = (document.getElementById('roboToken')?.value || roboConfig.token || '').trim();
+      if (!tok) throw new Error('No API token — paste your StocksTrader Bearer token');
+      const res = await fetch(ROBO_BASE + path, {
+        headers: { 'Authorization': 'Bearer ' + tok, 'Accept': 'application/json' }
+      });
+      let json;
+      try { json = await res.json(); } catch(e) {
+        throw new Error('Non-JSON response (HTTP ' + res.status + '). Restart the dev server if you just started it.');
+      }
+      if (!res.ok) {
+        const msg = json?.msg || json?.message || json?.error || json?.detail || JSON.stringify(json);
+        throw new Error('HTTP ' + res.status + ': ' + msg);
+      }
+      return json;
+    }
+
+    async function roboConnect() {
+      roboMsg('<div class="sbox info">Connecting...</div>');
+      try {
+        saveRoboConfig();
+        const manualId = (document.getElementById('roboAcctManual')?.value || '').trim();
+        // Try without trailing slash first — StocksTrader API treats trailing slash as extra path segment (→ 400)
+        const pathCandidates = ['/api/v1/accounts', '/accounts', '/v1/accounts', '/api/accounts'];
+        let raw, pathUsed;
+        for (const p of pathCandidates) {
+          try { raw = await roboFetch(p); pathUsed = p; break; } catch(e) {
+            if (/404|400/.test(e.message)) continue;
+            throw e;
+          }
+        }
+        if (!raw) throw new Error('Could not reach the accounts endpoint. Tried: ' + pathCandidates.join(', '));
+        // _pathBase always ends with / so calls can do base + 'accounts/' + id + '/...'
+        roboConfig._pathBase = pathUsed.replace(/\/?accounts$/, '/') ;
+        const list = roboUnwrap(raw);
+        const sel = document.getElementById('roboAcct');
+        // Build a debug dump of the raw response (first 800 chars) to help identify field names
+        const rawSnip = JSON.stringify(raw).slice(0, 800);
+        if (list.length) {
+          sel.innerHTML = list.map(a => {
+            const id = String(a.id ?? a.accountId ?? a.account_id ?? a.login ?? '');
+            const label = a.name || a.login || a.number || a.currency || id;
+            const bal = a.balance != null ? ` — $${(+a.balance).toFixed(2)}` : '';
+            return `<option value="${id}">${label}${bal}</option>`;
+          }).join('');
+          if (manualId) {
+            sel.value = manualId;
+            if (!sel.value) sel.insertAdjacentHTML('afterbegin', `<option value="${manualId}" selected>${manualId}</option>`);
+          }
+          roboConfig.accountId = sel.value || String(list[0].id ?? list[0].accountId ?? list[0].login ?? '');
+        } else if (manualId) {
+          sel.innerHTML = `<option value="${manualId}" selected>${manualId}</option>`;
+          roboConfig.accountId = manualId;
+        } else {
+          throw new Error('No accounts in response. Raw: ' + rawSnip);
+        }
+        saveRoboConfig();
+        document.getElementById('btnRoboImport').disabled = false;
+        document.getElementById('btnRoboPos').disabled = false;
+        document.getElementById('btnRoboTxn').disabled = false;
+        roboMsg(`<div class="sbox ok">Connected — ${list.length || 1} account(s) via <code>${pathUsed}</code>. Account ID set to <code>${roboConfig.accountId}</code>.</div><details style="margin-top:6px;font-size:11px"><summary style="cursor:pointer;color:var(--text3)">Raw API response (click to expand)</summary><pre style="font-size:10px;overflow:auto;max-height:200px;background:#1a1a1a;padding:8px;border-radius:4px">${rawSnip.replace(/</g,'&lt;')}</pre></details>`);
+      } catch(err) {
+        roboMsg(`<div class="sbox err">Connection failed: ${err.message}</div>`);
+      }
+    }
+
+    function roboDealToTrade(d) {
+      // StocksTrader API field names (confirmed from Swagger schema)
+      const sym = (d.ticker || d.symbol || d.instrument || '').replace(/[^A-Za-z0-9._]/g,'').toUpperCase();
+      if (!sym) return null;
+      const side = (d.side || d.direction || '').toLowerCase();
+      const isLong = side === 'buy' || side === 'long';
+      // open_time / close_time are Unix timestamps (seconds)
+      const tsToDate = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
+      const openDate  = tsToDate(d.open_time  || d.openTime  || d.create_time || d.createdAt);
+      const closeDate = tsToDate(d.close_time || d.closeTime || d.last_modified);
+      const date = closeDate || openDate;
+      if (!date) return null;
+      return {
+        sym,
+        dir: isLong ? 'Long' : 'Short',
+        vol: +(d.volume || d.qty || d.quantity || 0),
+        entry: +(d.open_price  || d.openPrice  || d.price || d.filled_price || 0),
+        exit:  +(d.close_price || d.closePrice || d.filled_price || 0),
+        pnl:   +(d.profit || d.pnl || 0),
+        date,
+        openDate,
+        account: 'RoboMarkets',
+        src: 'robomarkets',
+        notes: d.comment || ''
+      };
+    }
+
+    function roboSelectedLabel(acctId) {
+      const sel = document.getElementById('roboAcct');
+      const text = sel?.options[sel?.selectedIndex]?.text || '';
+      return text.split(' — $')[0].trim() || acctId || 'RoboMarkets';
+    }
+
+    // ── Balance snapshot helpers (deposit/withdrawal auto-detection) ──────────
+    async function roboFetchBalance(base, acctId) {
+      try {
+        const raw = await roboFetch(base + 'accounts/' + acctId + '/state');
+        const d = raw?.data ?? raw;
+        if (d?.margin?.balance != null) return +d.margin.balance;
+        if (d?.cash?.my_portfolio != null) return +d.cash.my_portfolio;
+        return null;
+      } catch(e) { return null; }
+    }
+
+    function loadLastBalance(acctId) {
+      try { const s = localStorage.getItem('tj7_bal_' + acctId); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+    }
+
+    function saveLastBalance(acctId, balance) {
+      try { localStorage.setItem('tj7_bal_' + acctId, JSON.stringify({ balance, ts: Date.now() })); } catch(e) {}
+    }
+
+    // Returns a deposit/withdrawal record if the balance moved more than trades explain.
+    // newTradePnl = sum of pnl of trades added in this sync session (already-closed deals only).
+    function detectCashMovement(acctId, acctLabel, prevBalance, currentBalance, newTradePnl) {
+      if (prevBalance == null || currentBalance == null) return null;
+      const unexplained = (currentBalance - prevBalance) - newTradePnl;
+      if (Math.abs(unexplained) < 1) return null; // ignore rounding noise
+      const today = new Date().toISOString().slice(0, 10);
+      return {
+        id: Date.now() + Math.random(),
+        date: today,
+        amount: +Math.abs(unexplained).toFixed(2),
+        type: unexplained > 0 ? 'deposit' : 'withdrawal',
+        note: acctLabel + ' (auto-detected)'
+      };
+    }
+
+    async function roboImportDeals() {
+      const acctId = (document.getElementById('roboAcctManual')?.value || document.getElementById('roboAcct')?.value || '').trim();
+      if (!acctId) { roboMsg('<div class="sbox warn">Enter or select an account ID first</div>'); return; }
+      roboMsg('<div class="sbox info">Fetching deals, orders & account balance...</div>');
+      try {
+        saveRoboConfig();
+        const base = roboConfig._pathBase || '/api/v1/';
+        const acctLabel = roboSelectedLabel(acctId);
+        const fromVal = document.getElementById('roboFrom')?.value;
+        const toVal   = document.getElementById('roboTo')?.value;
+        const toUnix = (dateStr, endOfDay) => {
+          if (!dateStr) return null;
+          return Math.floor(new Date(dateStr + (endOfDay ? 'T23:59:59Z' : 'T00:00:00Z')).getTime() / 1000);
+        };
+        let qs = '';
+        const fromTs = toUnix(fromVal, false), toTs = toUnix(toVal, true);
+        if (fromTs) qs += '?history_from=' + fromTs;
+        if (toTs)   qs += (qs ? '&' : '?') + 'history_to=' + toTs;
+
+        const prevBalanceSnap = loadLastBalance(acctId);
+
+        // Fetch deals, orders, and current account balance in parallel
+        const [dealsRes, ordersRes, balanceNow] = await Promise.all([
+          Promise.allSettled([roboFetch(base + 'accounts/' + acctId + '/deals' + qs)]).then(r => r[0]),
+          Promise.allSettled([roboFetch(base + 'accounts/' + acctId + '/orders?limit=500')]).then(r => r[0]),
+          roboFetchBalance(base, acctId)
+        ]);
+        const list = dealsRes.status === 'fulfilled' ? roboUnwrap(dealsRes.value) : [];
+        if (!list.length) { roboMsg('<div class="sbox warn">No deals returned for the selected period</div>'); return; }
+
+        // Build SL lookup by deal ID: order type=stop_loss has a 'deals' array of deal IDs it protects
+        const slByDealId = {};
+        if (ordersRes.status === 'fulfilled') {
+          roboUnwrap(ordersRes.value).forEach(o => {
+            if (o.type === 'stop_loss' && Array.isArray(o.deals) && o.price) {
+              o.deals.forEach(did => { slByDealId[String(did)] = +(o.price); });
+            }
+          });
+        }
+
+        const existingIds = new Set(S.trades.map(t => String(t.roboId || '')).filter(Boolean));
+        let added = 0, skipped = 0, newTradePnl = 0;
+        list.forEach(deal => {
+          const rid = String(deal.id || '');
+          if (rid && existingIds.has(rid)) { skipped++; return; }
+          const t = roboDealToTrade(deal);
+          if (!t) return;
+          t.account = acctLabel;
+          if (!t.stopLoss && slByDealId[rid]) t.stopLoss = slByDealId[rid];
+          t.id = Date.now() + Math.random();
+          if (rid) t.roboId = rid;
+          S.trades.push(t);
+          // Only count closed deals' PnL for cash movement detection
+          if (t.exit && t.exit > 0) newTradePnl += t.pnl || 0;
+          added++;
+        });
+        S.trades.sort((a, b) => a.date.localeCompare(b.date));
+
+        // Auto-detect deposit/withdrawal from unexplained balance change
+        let movementMsg = '';
+        if (balanceNow != null) {
+          if (prevBalanceSnap != null) {
+            const mv = detectCashMovement(acctId, acctLabel, prevBalanceSnap.balance, balanceNow, newTradePnl);
+            if (mv) {
+              S.deposits.push(mv);
+              renderDeposits();
+              movementMsg = `<div class="sbox info" style="margin-top:6px">Auto-detected <strong>${mv.type}</strong> of <strong>$${mv.amount.toFixed(2)}</strong> (balance changed $${(balanceNow - prevBalanceSnap.balance).toFixed(2)}, trades explain $${newTradePnl.toFixed(2)}). Added to Deposits tab — remove if incorrect.</div>`;
+            }
+          }
+          saveLastBalance(acctId, balanceNow);
+        }
+
+        saveS(); updateStatsCards(); renderCal();
+        roboMsg(`<div class="sbox ok">Imported <strong>${added}</strong> deal(s), skipped ${skipped} already present. SL matched for ${Object.keys(slByDealId).length} deal(s).${balanceNow != null ? ' Balance: $' + balanceNow.toFixed(2) + '.' : ''}</div>${movementMsg}`);
+      } catch(err) {
+        roboMsg(`<div class="sbox err">Import failed: ${err.message}</div>`);
+      }
+    }
+
+    async function roboSyncPositions() {
+      const acctId = (document.getElementById('roboAcctManual')?.value || document.getElementById('roboAcct')?.value || '').trim();
+      if (!acctId) { roboMsg('<div class="sbox warn">Enter or select an account ID first</div>'); return; }
+      roboMsg('<div class="sbox info">Fetching open positions & account balance...</div>');
+      try {
+        saveRoboConfig();
+        const base = roboConfig._pathBase || '/api/v1/';
+        const acctLabel = roboSelectedLabel(acctId);
+
+        const prevBalanceSnap = loadLastBalance(acctId);
+
+        const [dealsRaw, ordersRaw, balanceNow] = await Promise.all([
+          Promise.allSettled([roboFetch(base + 'accounts/' + acctId + '/deals?limit=500')]).then(r => r[0]),
+          Promise.allSettled([roboFetch(base + 'accounts/' + acctId + '/orders?status=active&limit=500')]).then(r => r[0]),
+          roboFetchBalance(base, acctId)
+        ]);
+        const deals = dealsRaw.status === 'fulfilled' ? roboUnwrap(dealsRaw.value) : [];
+        const activeOrders = ordersRaw.status === 'fulfilled' ? roboUnwrap(ordersRaw.value) : [];
+
+        // SL from active stop_loss orders — each has a 'deals' array of protected deal IDs
+        const slByDealId = {};
+        activeOrders.forEach(o => {
+          if (o.type === 'stop_loss' && Array.isArray(o.deals) && o.price) {
+            o.deals.forEach(did => { slByDealId[String(did)] = +(o.price); });
+          }
+        });
+
+        // Deal status enum per API spec: open, closing, closed, trade
+        const openDeals = deals.filter(d => d.status === 'open' || d.status === 'closing' || (!d.close_time && d.status !== 'closed'));
+        S.trades = S.trades.filter(t => !(t.src === 'robomarkets' && (!t.exit || t.exit === 0)));
+        let added = 0;
+        openDeals.forEach(pos => {
+          const rid = String(pos.id || '');
+          const t = roboDealToTrade({ ...pos, close_price: 0, close_time: null, profit: 0 });
+          if (!t) return;
+          t.account = acctLabel;
+          if (!t.stopLoss && slByDealId[rid]) t.stopLoss = slByDealId[rid];
+          t.id = Date.now() + Math.random();
+          t.exit = 0; t.pnl = 0;
+          S.trades.push(t);
+          added++;
+        });
+
+        // Auto-detect deposit/withdrawal — open positions have 0 PnL so any balance change is cash movement
+        let movementMsg = '';
+        if (balanceNow != null) {
+          if (prevBalanceSnap != null) {
+            // Pass 0 for newTradePnl: open positions don't contribute realized PnL
+            const mv = detectCashMovement(acctId, acctLabel, prevBalanceSnap.balance, balanceNow, 0);
+            if (mv) {
+              S.deposits.push(mv);
+              renderDeposits();
+              movementMsg = `<div class="sbox info" style="margin-top:6px">Auto-detected <strong>${mv.type}</strong> of <strong>$${mv.amount.toFixed(2)}</strong> (balance changed from $${prevBalanceSnap.balance.toFixed(2)} to $${balanceNow.toFixed(2)}). Added to Deposits tab — remove if incorrect.</div>`;
+            }
+          }
+          saveLastBalance(acctId, balanceNow);
+        }
+
+        saveS(); updateStatsCards(); renderCal();
+        roboMsg(`<div class="sbox ok">Synced ${added} open position(s) for <strong>${acctLabel}</strong>. SL matched for ${Object.keys(slByDealId).length} position(s).${balanceNow != null ? ' Balance: $' + balanceNow.toFixed(2) + '.' : ''}</div>${movementMsg}`);
+      } catch(err) {
+        roboMsg(`<div class="sbox err">Failed: ${err.message}</div>`);
+      }
     }
 
     /* ══ INIT ══════════════════════════════════════════════════════════════════════ */
     loadS(); loadCriteria(); setJDate();
-    loadMarketConfig();
-    // Set today in deposit date
+    loadRoboConfig(); loadFdKey(); loadMassiveKey();
     document.getElementById('depDate').value = new Date().toISOString().split('T')[0];
     updateStatsCards(); renderCal();
+    connectMassiveWS(); // auto-connects using hardcoded key (overridable via UI)
   </script>
 </body>
 
