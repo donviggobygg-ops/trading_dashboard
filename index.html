@@ -1693,6 +1693,7 @@
     let activeAccountFilter = '';
     let pendingJImgs = [], pendingWImgs = [], pendingTImgs = [], curEmo = '', pendingTrades = [], csvBatch = null;
     const MASSIVE_API_KEY = 'WKkFFV7rGs2_9lBNEuYAtxZMSEjsdN3r';
+    const FD_API_KEY = '6cddc0834c6253cb933afff572dffa6d';
     // On GitHub Pages there is no dev server proxy — use direct API URLs instead
     const ON_GH_PAGES = location.hostname.includes('github.io') || location.hostname.includes('github.com');
     const MASSIVE_BASE = ON_GH_PAGES ? 'https://api.massive.com' : '/massiveapi';
@@ -2502,7 +2503,7 @@
     function getFdKey() {
       const el = document.getElementById('fdApiKey');
       if (el?.value?.trim()) return el.value.trim();
-      try { return localStorage.getItem('tj7_fdkey') || ''; } catch(e) { return ''; }
+      try { return localStorage.getItem('tj7_fdkey') || FD_API_KEY; } catch(e) { return FD_API_KEY; }
     }
     function loadFdKey() {
       try {
