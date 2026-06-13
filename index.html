@@ -2641,7 +2641,9 @@
       } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; }
     }
 
-    function normalizeSymbols(sym) { return sym.trim().toUpperCase().replace(/\s+/g, ''); }
+    function normalizeSymbols(sym) {
+      return sym.trim().toUpperCase().replace(/\s+/g, '').replace(/\.[A-Z0-9]+$/, '');
+    }
 
     function buildTradeMarkers(symbol) {
       const chartSym = normalizeSymbols(symbol);
