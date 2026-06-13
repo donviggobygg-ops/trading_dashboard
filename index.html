@@ -2531,9 +2531,62 @@
       return data;
     }
 
+    // Returns true if a Unix-second timestamp falls within US regular market hours (9:30–16:00 ET).
+    // Handles EDT (UTC-4, ~Apr–Oct) and EST (UTC-5, ~Nov–Mar) via DST boundary detection.
+    function isMarketHours(unixSec) {
+      const d = new Date(unixSec * 1000);
+      const y = d.getUTCFullYear(), m = d.getUTCMonth(); // m: 0-indexed
+      let isEDT;
+      if (m >= 3 && m <= 9) { isEDT = true; }            // Apr–Oct: always EDT
+      else if (m <= 1 || m === 11) { isEDT = false; }    // Jan, Feb, Dec: always EST
+      else if (m === 2) {
+        // EDT starts 2nd Sunday of March at 07:00 UTC (= 2:00 AM EST)
+        const d1 = new Date(Date.UTC(y, 2, 1)); const dow = d1.getUTCDay();
+        const sun2 = 1 + (7 - dow) % 7 + 7;
+        isEDT = d.getTime() >= Date.UTC(y, 2, sun2, 7);
+      } else {
+        // EDT ends 1st Sunday of November at 06:00 UTC (= 2:00 AM EDT)
+        const d1 = new Date(Date.UTC(y, 10, 1)); const dow = d1.getUTCDay();
+        const sun1 = 1 + (7 - dow) % 7;
+        isEDT = d.getTime() < Date.UTC(y, 10, sun1, 6);
+      }
+      const utcMin = d.getUTCHours() * 60 + d.getUTCMinutes();
+      return utcMin >= (isEDT ? 13*60+30 : 14*60+30) && utcMin < (isEDT ? 20*60 : 21*60);
+    }
+
+    // Returns the Monday and Friday of the ISO week containing dateStr (YYYY-MM-DD).
+    function getWeekRange(dateStr) {
+      const d = new Date(dateStr + 'T12:00:00Z');
+      const dow = d.getUTCDay(); // 0=Sun
+      const toMon = dow === 0 ? -6 : -(dow - 1);
+      const toFri = dow === 6 ? -1 : 5 - dow;
+      const mon = new Date(d.getTime() + toMon * 86400000);
+      const fri = new Date(d.getTime() + toFri * 86400000);
+      return { from: mon.toISOString().slice(0, 10), to: fri.toISOString().slice(0, 10) };
+    }
+
+    // Find the first candle on a given day (array already filtered to that day) where the price
+    // falls within [low, high] — best proxy for when the fill happened.
+    function findEntryCandleByPrice(candles, price) {
+      if (!candles.length) return null;
+      if (price == null) return candles[0];
+      const hit = candles.find(c => c.low <= price && price <= c.high);
+      if (hit) return hit;
+      return candles.reduce((b, c) => Math.abs(c.open - price) < Math.abs(b.open - price) ? c : b);
+    }
+
+    // Find the last candle on a given day where the price falls within [low, high].
+    function findExitCandleByPrice(candles, price) {
+      if (!candles.length) return null;
+      if (price == null) return candles[candles.length - 1];
+      const hits = candles.filter(c => c.low <= price && price <= c.high);
+      if (hits.length) return hits[hits.length - 1];
+      return candles.reduce((b, c) => Math.abs(c.close - price) < Math.abs(b.close - price) ? c : b);
+    }
+
     // Fetch 5-minute OHLCV candles from Massive.com REST API.
     // Endpoint: GET /v2/aggs/ticker/{sym}/range/5/minute/{from}/{to}
-    // Returns array of { time: unixSeconds, open, high, low, close } sorted ascending.
+    // Returns array of { time: unixSeconds, open, high, low, close } sorted ascending, market hours only.
     async function fetchIntradayCandles(symbol, fromDate, toDate) {
       const sym = normalizeSymbols(symbol);
       const key = getMassiveKey();
@@ -2541,7 +2594,7 @@
       const from = fromDate || toDate;
       const to   = toDate   || fromDate;
       if (!from) throw new Error('Date range required for 5-minute chart.');
-      const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(sym)}/range/5/minute/${from}/${to}?apiKey=${key}&limit=1000&sort=asc&adjusted=true`;
+      const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(sym)}/range/5/minute/${from}/${to}?apiKey=${key}&limit=5000&sort=asc&adjusted=true`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Massive.com error ${res.status} — check your API key.`);
       let json;
@@ -2549,10 +2602,10 @@
       if (json.status === 'ERROR') throw new Error('Massive.com: ' + (json.error || json.message || 'unknown error'));
       const arr = json.results || [];
       if (!arr.length) throw new Error(`No 5-minute bars for ${sym} (${from} → ${to}). Market may have been closed, or check the symbol name.`);
-      return arr.map(r => ({
-        time:  Math.floor(r.t / 1000), // Massive returns Unix ms → convert to seconds
-        open:  r.o, high: r.h, low: r.l, close: r.c
-      })).sort((a, b) => a.time - b.time);
+      return arr
+        .map(r => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c }))
+        .filter(c => isMarketHours(c.time))
+        .sort((a, b) => a.time - b.time);
     }
 
     function roboAccountId() {
@@ -2652,9 +2705,11 @@
       return trades.flatMap(t => {
         const timeEntry = t.openDate || t.date;
         const markers = [];
-        markers.push({ time: timeEntry, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: '+' });
+        const entryPriceText = t.entry != null ? `+$${t.entry.toFixed(2)}` : '+';
+        markers.push({ time: timeEntry, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: entryPriceText });
         if (t.exit) {
-          markers.push({ time: t.date, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: '×' });
+          const exitPriceText = `×$${t.exit.toFixed(2)}`;
+          markers.push({ time: t.date, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: exitPriceText });
         } else {
           markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 1, text: '○' });
         }
@@ -2721,9 +2776,12 @@
       wrapper.innerHTML = '';
 
       try {
-        const fromDate = t.openDate || t.date;
-        const toDate   = t.exit ? t.date : new Date().toISOString().slice(0, 10);
-        const data = await fetchIntradayCandles(t.sym, fromDate, toDate);
+        // Fetch the full Mon–Fri week(s) so the entire week is visible on the 5m chart
+        const entryDate = t.openDate || t.date;
+        const exitDate  = t.exit ? t.date : new Date().toISOString().slice(0, 10);
+        const entryWeek = getWeekRange(entryDate);
+        const exitWeek  = getWeekRange(exitDate);
+        const data = await fetchIntradayCandles(t.sym, entryWeek.from, exitWeek.to);
 
         statusEl.style.display = 'none';
         wrapper.style.display  = 'block';
@@ -2763,16 +2821,36 @@
           legends.push(`<span style="color:#e74c3c">━</span> Stop Loss $${t.stopLoss.toFixed(2)}`);
         }
 
-        // Today marker — only if today falls within the chart's data range
-        const todayTs = Math.floor(Date.now() / 1000);
-        if (data.length && todayTs >= data[0].time && todayTs <= data[data.length - 1].time + 86400) {
-          const closest = data.reduce((b, c) => Math.abs(c.time - todayTs) < Math.abs(b.time - todayTs) ? c : b);
-          const tMarkers = [{ time: closest.time, position: 'aboveBar', color: '#3b82f6', shape: 'circle', text: 'Today' }];
+        // Place markers on the specific candle where price was reached (by matching entry/exit price)
+        const candlesForDay = (dateStr) => {
+          const dayStart = Math.floor(new Date(dateStr + 'T10:00:00Z').getTime() / 1000);
+          const dayEnd   = Math.floor(new Date(dateStr + 'T23:59:00Z').getTime() / 1000);
+          return data.filter(c => c.time >= dayStart && c.time <= dayEnd);
+        };
+        const tradeMarkers = [];
+        const entryCandle = findEntryCandleByPrice(candlesForDay(entryDate), t.entry);
+        if (entryCandle) {
+          tradeMarkers.push({ time: entryCandle.time, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: '+' });
+        }
+        if (t.exit) {
+          const exitCandle = findExitCandleByPrice(candlesForDay(exitDate), t.exit);
+          if (exitCandle) {
+            tradeMarkers.push({ time: exitCandle.time, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: '×' });
+          }
+        } else {
+          // Open trade: today marker
+          const todayTs = Math.floor(Date.now() / 1000);
+          if (data.length && todayTs >= data[0].time && todayTs <= data[data.length - 1].time + 86400) {
+            const closest = data.reduce((b, c) => Math.abs(c.time - todayTs) < Math.abs(b.time - todayTs) ? c : b);
+            tradeMarkers.push({ time: closest.time, position: 'aboveBar', color: '#3b82f6', shape: 'circle', text: 'Today' });
+            legends.push('<span style="color:#3b82f6">●</span> Today');
+          }
+        }
+        if (tradeMarkers.length) {
           try {
-            if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(cs, tMarkers);
-            else if (cs.setMarkers) cs.setMarkers(tMarkers);
+            if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(cs, tradeMarkers);
+            else if (cs.setMarkers) cs.setMarkers(tradeMarkers);
           } catch(e) {}
-          legends.push('<span style="color:#3b82f6">●</span> Today');
         }
 
         legendEl.innerHTML = legends.join('<span style="color:var(--border);margin:0 6px">|</span>');
