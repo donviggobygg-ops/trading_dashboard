@@ -2683,7 +2683,8 @@
           layout: { background: { color: '#111' }, textColor: '#ddd' },
           grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
           rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
-          timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false }
+          timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false },
+          crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
         });
         // lightweight-charts v5 uses addSeries(CandlestickSeries), v4 uses addCandlestickSeries
         if (LightweightCharts.CandlestickSeries) {
@@ -2691,6 +2692,7 @@
         } else {
           tvCandleSeries = tvChart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
         }
+        tvCandleSeries.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.2 } });
       } catch(e) { setChartStatus('Chart init error: ' + e.message); tvChart=null; tvCandleSeries=null; }
     }
 
@@ -2791,7 +2793,8 @@
           layout: { background: { color: '#111' }, textColor: '#ccc' },
           grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
           rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
-          timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false }
+          timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false },
+          crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
         });
         tradeChartInstance = chart;
 
@@ -2802,6 +2805,7 @@
           cs = chart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderVisible:false, wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
         }
         cs.setData(data);
+        cs.priceScale().applyOptions({ autoScale: true, scaleMargins: { top: 0.1, bottom: 0.2 } });
 
         const LS = LightweightCharts.LineStyle ?? {};
         const Dashed = LS.Dashed ?? 2;
