@@ -2821,19 +2821,38 @@
           legends.push(`<span style="color:#e74c3c">━</span> Stop Loss $${t.stopLoss.toFixed(2)}`);
         }
 
-        // Place markers on the specific candle where price was reached (by matching entry/exit price)
+        // Place markers on the specific candle — use exact fill time when available (RoboMarkets stores openDateTime/closeDateTime),
+        // otherwise fall back to finding the candle whose [low, high] range contains the fill price.
         const candlesForDay = (dateStr) => {
           const dayStart = Math.floor(new Date(dateStr + 'T10:00:00Z').getTime() / 1000);
           const dayEnd   = Math.floor(new Date(dateStr + 'T23:59:00Z').getTime() / 1000);
           return data.filter(c => c.time >= dayStart && c.time <= dayEnd);
         };
+        const snapToCandle = (targetTs, dayCandles) => {
+          if (!dayCandles.length) return null;
+          // Find the 5-min bar that contains the fill timestamp (bar opens at c.time, closes at c.time+299)
+          const hit = dayCandles.find(c => targetTs >= c.time && targetTs < c.time + 300);
+          return hit || dayCandles.reduce((b, c) => Math.abs(c.time - targetTs) < Math.abs(b.time - targetTs) ? c : b);
+        };
         const tradeMarkers = [];
-        const entryCandle = findEntryCandleByPrice(candlesForDay(entryDate), t.entry);
+        const entryDayCandles = candlesForDay(entryDate);
+        let entryCandle;
+        if (t.openDateTime) {
+          entryCandle = snapToCandle(Math.floor(new Date(t.openDateTime).getTime() / 1000), entryDayCandles);
+        } else {
+          entryCandle = findEntryCandleByPrice(entryDayCandles, t.entry);
+        }
         if (entryCandle) {
           tradeMarkers.push({ time: entryCandle.time, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: '+' });
         }
         if (t.exit) {
-          const exitCandle = findExitCandleByPrice(candlesForDay(exitDate), t.exit);
+          const exitDayCandles = candlesForDay(exitDate);
+          let exitCandle;
+          if (t.closeDateTime) {
+            exitCandle = snapToCandle(Math.floor(new Date(t.closeDateTime).getTime() / 1000), exitDayCandles);
+          } else {
+            exitCandle = findExitCandleByPrice(exitDayCandles, t.exit);
+          }
           if (exitCandle) {
             tradeMarkers.push({ time: exitCandle.time, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: '×' });
           }
@@ -3050,10 +3069,13 @@
       if (!sym) return null;
       const side = (d.side || d.direction || '').toLowerCase();
       const isLong = side === 'buy' || side === 'long';
-      // open_time / close_time are Unix timestamps (seconds)
-      const tsToDate = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
-      const openDate  = tsToDate(d.open_time  || d.openTime  || d.create_time || d.createdAt);
-      const closeDate = tsToDate(d.close_time || d.closeTime || d.last_modified);
+      // open_time / close_time are Unix timestamps (seconds) — preserve full datetime for candle-accurate markers
+      const tsToDate     = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
+      const tsToDateTime = ts => ts ? new Date(ts * 1000).toISOString() : '';
+      const rawOpenTs  = d.open_time  || d.openTime  || d.create_time || d.createdAt;
+      const rawCloseTs = d.close_time || d.closeTime || d.last_modified;
+      const openDate   = tsToDate(rawOpenTs);
+      const closeDate  = tsToDate(rawCloseTs);
       const date = closeDate || openDate;
       if (!date) return null;
       return {
@@ -3065,6 +3087,8 @@
         pnl:   +(d.profit || d.pnl || 0),
         date,
         openDate,
+        openDateTime:  tsToDateTime(rawOpenTs),   // e.g. "2024-03-15T14:32:00.000Z"
+        closeDateTime: tsToDateTime(rawCloseTs),
         account: 'RoboMarkets',
         src: 'robomarkets',
         notes: d.comment || ''
