@@ -1107,6 +1107,7 @@
       <button onclick="showPage('weekly',this)">📅 Weekly plan</button>
       <button onclick="showPage('backlog',this)">🖼 Screenshot backlog</button>
       <button onclick="showPage('chart',this)">📈 Trading Chart</button>
+      <button onclick="showPage('tradingview',this)">📊 TradingView</button>
       <button onclick="showPage('log',this)">≡ Trade log</button>
       <button onclick="showPage('deposits',this)">$ Deposits</button>
     </div>
@@ -1290,6 +1291,18 @@
     <div id="chartStatus" style="margin-bottom:8px;font-size:12px;color:var(--text3)">Enter a ticker symbol and press Enter or click Load chart.</div>
     <div id="chartWrapper"
       style="height:calc(100vh - 140px);min-height:500px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg);">
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: TRADINGVIEW WIDGET                                                   -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div id="page-tradingview" class="page" style="height:calc(100vh - 48px);padding:0;overflow:hidden">
+    <div id="tvWidgetContainer" style="height:100%;width:100%">
+      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+      <div class="tradingview-widget-copyright" style="font-size:11px;padding:4px 8px">
+        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank" style="color:#3b82f6">Charts by TradingView</a>
+      </div>
     </div>
   </div>
 
@@ -1795,11 +1808,54 @@
       if (btn) btn.classList.add('active-tab-btn');
       if (p === 'dashboard') setTimeout(renderDash, 0);
       if (p === 'chart') { loadFdKey(); loadMassiveKey(); setTimeout(() => { if (tvLoadedSymbol) loadSymbolChart(tvLoadedSymbol); }, 50); }
+      if (p === 'tradingview') initTVWidget();
       if (p === 'log') renderLog();
       if (p === 'deposits') renderDeposits();
       if (p === 'weekly') renderWeeks();
       if (p === 'backlog') renderBacklog();
       if (p === 'daily') { setJDate(); renderToday(); renderRecentEntries(); renderCriteriaList(); }
+    }
+
+    /* ══ TRADINGVIEW WIDGET ════════════════════════════════════════════════════ */
+    let tvWidgetInitialized = false;
+    function initTVWidget() {
+      if (tvWidgetInitialized) return;
+      tvWidgetInitialized = true;
+      const container = document.getElementById('tvWidgetContainer');
+      if (!container) return;
+      const script = document.createElement('script');
+      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+      script.type = 'text/javascript';
+      script.async = true;
+      script.innerHTML = JSON.stringify({
+        allow_symbol_change: true,
+        calendar: false,
+        details: true,
+        hide_side_toolbar: false,
+        hide_top_toolbar: false,
+        hide_legend: false,
+        hide_volume: false,
+        hotlist: true,
+        interval: 'D',
+        locale: 'en',
+        save_image: true,
+        style: '1',
+        symbol: 'NASDAQ:AAPL',
+        theme: 'dark',
+        timezone: 'America/New_York',
+        backgroundColor: '#0F0F0F',
+        gridColor: 'rgba(242, 242, 242, 0.06)',
+        watchlist: ['CME_MINI:NQ1!', 'AMEX:SPY'],
+        withdateranges: false,
+        range: '6M',
+        compareSymbols: [{ symbol: 'NASDAQ:QQQ', position: 'NewPane' }],
+        show_popup_button: true,
+        popup_height: '650',
+        popup_width: '1000',
+        studies: ['STD;VWAP', 'STD;Performance', 'STD;Multi-Time%Period%Charts', 'STD;MA%1Cross', 'STD;EMA'],
+        autosize: true,
+      });
+      container.appendChild(script);
     }
 
     /* ══ EQUITY HELPERS ════════════════════════════════════════════════════════ */
