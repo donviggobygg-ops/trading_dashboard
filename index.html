@@ -2684,7 +2684,19 @@
           grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
           rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
           timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false, barSpacing: 10 },
-          crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode?.Normal ?? 0,
+            vertLine: {
+              width: 8,
+              color: '#C3BCDB44',
+              style: LightweightCharts.LineStyle?.Solid ?? 0,
+              labelBackgroundColor: '#9B7DFF',
+            },
+            horzLine: {
+              color: '#9B7DFF',
+              labelBackgroundColor: '#9B7DFF',
+            },
+          }
         });
         // lightweight-charts v5 uses addSeries(CandlestickSeries), v4 uses addCandlestickSeries
         if (LightweightCharts.CandlestickSeries) {
@@ -2794,7 +2806,19 @@
           grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
           rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
           timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false, barSpacing: 10 },
-          crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode?.Normal ?? 0,
+            vertLine: {
+              width: 8,
+              color: '#C3BCDB44',
+              style: LightweightCharts.LineStyle?.Solid ?? 0,
+              labelBackgroundColor: '#9B7DFF',
+            },
+            horzLine: {
+              color: '#9B7DFF',
+              labelBackgroundColor: '#9B7DFF',
+            },
+          }
         });
         tradeChartInstance = chart;
 
