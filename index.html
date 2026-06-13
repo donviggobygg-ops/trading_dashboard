@@ -1298,12 +1298,12 @@
   <!-- PAGE: TRADINGVIEW WIDGET                                                   -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div id="page-tradingview" class="page" style="height:calc(100vh - 48px);padding:0;overflow:hidden">
-    <div id="tvWidgetContainer" style="height:100%;width:100%">
-      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-      <div class="tradingview-widget-copyright" style="font-size:11px;padding:4px 8px">
-        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank" style="color:#3b82f6">Charts by TradingView</a>
-      </div>
-    </div>
+    <iframe id="tvWidgetFrame"
+      src="about:blank"
+      style="width:100%;height:100%;border:none;display:block"
+      allowfullscreen
+      allowtransparency="true">
+    </iframe>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -1821,41 +1821,23 @@
     function initTVWidget() {
       if (tvWidgetInitialized) return;
       tvWidgetInitialized = true;
-      const container = document.getElementById('tvWidgetContainer');
-      if (!container) return;
-      const script = document.createElement('script');
-      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-      script.type = 'text/javascript';
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        allow_symbol_change: true,
-        calendar: false,
-        details: true,
-        hide_side_toolbar: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        hide_volume: false,
-        hotlist: true,
-        interval: 'D',
-        locale: 'en',
-        save_image: true,
-        style: '1',
+      const frame = document.getElementById('tvWidgetFrame');
+      if (!frame) return;
+      const params = new URLSearchParams({
         symbol: 'NASDAQ:AAPL',
+        interval: 'D',
         theme: 'dark',
+        style: '1',
+        locale: 'en',
         timezone: 'America/New_York',
-        backgroundColor: '#0F0F0F',
-        gridColor: 'rgba(242, 242, 242, 0.06)',
-        watchlist: ['CME_MINI:NQ1!', 'AMEX:SPY'],
-        withdateranges: false,
-        range: '6M',
-        compareSymbols: [{ symbol: 'NASDAQ:QQQ', position: 'NewPane' }],
-        show_popup_button: true,
-        popup_height: '650',
-        popup_width: '1000',
-        studies: ['STD;VWAP', 'STD;Performance', 'STD;Multi-Time%Period%Charts', 'STD;MA%1Cross', 'STD;EMA'],
-        autosize: true,
+        allow_symbol_change: '1',
+        hide_side_toolbar: '0',
+        save_image: '1',
+        studies: 'STD;VWAP',
+        autosize: '1',
+        hide_volume: '0',
       });
-      container.appendChild(script);
+      frame.src = `https://www.tradingview.com/widgetembed/?${params.toString()}`;
     }
 
     /* ══ EQUITY HELPERS ════════════════════════════════════════════════════════ */
