@@ -2733,7 +2733,7 @@
           const ec = t.pnl >= 0 ? '#2ecc71' : '#e74c3c';
           markers.push({ time: t.date, position: 'aboveBar', color: ec, shape: 'arrowDown', size: 0.5, text: `Sell @ $${t.exit.toFixed(2)} (${t.entry ? (t.dir === 'Short' ? (t.entry - t.exit) / t.entry * 100 : (t.exit - t.entry) / t.entry * 100).toFixed(2) : '?'}%)` });
         } else {
-          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 1, text: 'Open' });
+          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 0.4, text: 'Open' });
         }
         return markers;
       });
@@ -2761,6 +2761,11 @@
           if (LightweightCharts.createSeriesMarkers) LightweightCharts.createSeriesMarkers(tvCandleSeries, markers);
           else if (tvCandleSeries.setMarkers) tvCandleSeries.setMarkers(markers);
         } catch(me) {}
+        // SL price lines for open trades on the daily chart
+        const LS2 = LightweightCharts.LineStyle ?? {};
+        S.trades.filter(t => normalizeSymbols(t.sym) === sym && !t.exit && t.stopLoss).forEach(t => {
+          tvCandleSeries.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: LS2.Dashed ?? 2, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
+        });
         tvLoadedSymbol = sym;
         tvChart.timeScale().fitContent();
         const tc = Math.floor(markers.length / 2);
@@ -2870,8 +2875,8 @@
           const ec = t.pnl >= 0 ? '#2ecc71' : '#e74c3c';
           cs.createPriceLine({ price: t.exit, color: 'rgba(0,0,0,0)', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `Exit $${t.exit.toFixed(2)}` });
         }
-        if (t.stopLoss && t.pnl > 0) {
-          cs.createPriceLine({ price: t.stopLoss, color: 'rgba(0,0,0,0)', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
+        if (t.stopLoss) {
+          cs.createPriceLine({ price: t.stopLoss, color: '#e74c3c', lineWidth: 1, lineStyle: Dashed, axisLabelVisible: true, title: `SL $${t.stopLoss.toFixed(2)}` });
         }
 
         // Place markers on the specific candle — use exact fill time when available (RoboMarkets stores openDateTime/closeDateTime),
