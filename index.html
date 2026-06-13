@@ -2706,12 +2706,12 @@
         const timeEntry = t.openDate || t.date;
         const markers = [];
         const entryPriceText = t.entry != null ? `+$${t.entry.toFixed(2)}` : '+';
-        markers.push({ time: timeEntry, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 1, text: entryPriceText });
+        markers.push({ time: timeEntry, position: 'belowBar', color: '#2ecc71', shape: 'circle', size: 0, text: entryPriceText });
         if (t.exit) {
           const exitPriceText = `×$${t.exit.toFixed(2)}`;
-          markers.push({ time: t.date, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 1, text: exitPriceText });
+          markers.push({ time: t.date, position: 'aboveBar', color: t.pnl >= 0 ? '#2ecc71' : '#e74c3c', shape: 'circle', size: 0, text: exitPriceText });
         } else {
-          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 1, text: '○' });
+          markers.push({ time: timeEntry, position: 'aboveBar', color: '#f5c842', shape: 'circle', size: 0, text: '○' });
         }
         return markers;
       });
